@@ -7,62 +7,16 @@
  */
 
 import {
-  type ClientWithRpc,
-  type ClientWithTransactionPlanning,
-  type ClientWithTransactionSending,
-  type GetAccountInfoApi,
-  type GetMultipleAccountsApi,
-} from "@solana/kit";
-import {
-  addSelfFetchFunctions,
-  addSelfPlanAndSendFunctions,
-  type SelfFetchFunctions,
-  type SelfPlanAndSendFunctions,
-} from "@solana/program-client-core";
-import {
   assertIsInstructionWithAccounts,
   containsBytes,
   fixEncoderSize,
   getBytesEncoder,
-  SOLANA_ERROR__PROGRAM_CLIENTS__FAILED_TO_IDENTIFY_ACCOUNT,
-  SOLANA_ERROR__PROGRAM_CLIENTS__FAILED_TO_IDENTIFY_INSTRUCTION,
-  SOLANA_ERROR__PROGRAM_CLIENTS__UNRECOGNIZED_INSTRUCTION_TYPE,
-  SolanaError,
   type Address,
   type Instruction,
   type InstructionWithData,
   type ReadonlyUint8Array,
 } from "gill";
 import {
-  getBlacklistEntryCodec,
-  getMinterQuotaCodec,
-  getRoleAccountCodec,
-  getStablecoinConfigCodec,
-  type BlacklistEntry,
-  type BlacklistEntryArgs,
-  type MinterQuota,
-  type MinterQuotaArgs,
-  type RoleAccount,
-  type RoleAccountArgs,
-  type StablecoinConfig,
-  type StablecoinConfigArgs,
-} from "../accounts";
-import {
-  getAddToBlacklistInstruction,
-  getBurnInstruction,
-  getFreezeAccountInstruction,
-  getInitializeInstructionAsync,
-  getInitializePermanentDelegateInstructionAsync,
-  getInitializeSss2InstructionAsync,
-  getMintInstruction,
-  getPauseInstruction,
-  getRemoveFromBlacklistInstruction,
-  getSeizeInstruction,
-  getThawAccountInstruction,
-  getTransferAuthorityInstruction,
-  getUnpauseInstruction,
-  getUpdateMinterInstruction,
-  getUpdateRolesInstruction,
   parseAddToBlacklistInstruction,
   parseBurnInstruction,
   parseFreezeAccountInstruction,
@@ -78,13 +32,6 @@ import {
   parseUnpauseInstruction,
   parseUpdateMinterInstruction,
   parseUpdateRolesInstruction,
-  type AddToBlacklistInput,
-  type BurnInput,
-  type FreezeAccountInput,
-  type InitializeAsyncInput,
-  type InitializePermanentDelegateAsyncInput,
-  type InitializeSss2AsyncInput,
-  type MintInput,
   type ParsedAddToBlacklistInstruction,
   type ParsedBurnInstruction,
   type ParsedFreezeAccountInstruction,
@@ -100,14 +47,6 @@ import {
   type ParsedUnpauseInstruction,
   type ParsedUpdateMinterInstruction,
   type ParsedUpdateRolesInstruction,
-  type PauseInput,
-  type RemoveFromBlacklistInput,
-  type SeizeInput,
-  type ThawAccountInput,
-  type TransferAuthorityInput,
-  type UnpauseInput,
-  type UpdateMinterInput,
-  type UpdateRolesInput,
 } from "../instructions";
 
 export const STC_PROGRAM_PROGRAM_ADDRESS =
@@ -168,9 +107,8 @@ export function identifyStcProgramAccount(
   ) {
     return StcProgramAccount.StablecoinConfig;
   }
-  throw new SolanaError(
-    SOLANA_ERROR__PROGRAM_CLIENTS__FAILED_TO_IDENTIFY_ACCOUNT,
-    { accountData: data, programName: "stcProgram" },
+  throw new Error(
+    "The provided account could not be identified as a stcProgram account.",
   );
 }
 
@@ -361,9 +299,8 @@ export function identifyStcProgramInstruction(
   ) {
     return StcProgramInstruction.UpdateRoles;
   }
-  throw new SolanaError(
-    SOLANA_ERROR__PROGRAM_CLIENTS__FAILED_TO_IDENTIFY_INSTRUCTION,
-    { instructionData: data, programName: "stcProgram" },
+  throw new Error(
+    "The provided instruction could not be identified as a stcProgram instruction.",
   );
 }
 
@@ -527,173 +464,8 @@ export function parseStcProgramInstruction<TProgram extends string>(
       };
     }
     default:
-      throw new SolanaError(
-        SOLANA_ERROR__PROGRAM_CLIENTS__UNRECOGNIZED_INSTRUCTION_TYPE,
-        {
-          instructionType: instructionType as string,
-          programName: "stcProgram",
-        },
+      throw new Error(
+        `Unrecognized instruction type: ${instructionType as string}`,
       );
   }
-}
-
-export type StcProgramPlugin = {
-  accounts: StcProgramPluginAccounts;
-  instructions: StcProgramPluginInstructions;
-};
-
-export type StcProgramPluginAccounts = {
-  blacklistEntry: ReturnType<typeof getBlacklistEntryCodec> &
-    SelfFetchFunctions<BlacklistEntryArgs, BlacklistEntry>;
-  minterQuota: ReturnType<typeof getMinterQuotaCodec> &
-    SelfFetchFunctions<MinterQuotaArgs, MinterQuota>;
-  roleAccount: ReturnType<typeof getRoleAccountCodec> &
-    SelfFetchFunctions<RoleAccountArgs, RoleAccount>;
-  stablecoinConfig: ReturnType<typeof getStablecoinConfigCodec> &
-    SelfFetchFunctions<StablecoinConfigArgs, StablecoinConfig>;
-};
-
-export type StcProgramPluginInstructions = {
-  addToBlacklist: (
-    input: AddToBlacklistInput,
-  ) => ReturnType<typeof getAddToBlacklistInstruction> &
-    SelfPlanAndSendFunctions;
-  burn: (
-    input: BurnInput,
-  ) => ReturnType<typeof getBurnInstruction> & SelfPlanAndSendFunctions;
-  freezeAccount: (
-    input: FreezeAccountInput,
-  ) => ReturnType<typeof getFreezeAccountInstruction> &
-    SelfPlanAndSendFunctions;
-  initialize: (
-    input: InitializeAsyncInput,
-  ) => ReturnType<typeof getInitializeInstructionAsync> &
-    SelfPlanAndSendFunctions;
-  initializePermanentDelegate: (
-    input: InitializePermanentDelegateAsyncInput,
-  ) => ReturnType<typeof getInitializePermanentDelegateInstructionAsync> &
-    SelfPlanAndSendFunctions;
-  initializeSss2: (
-    input: InitializeSss2AsyncInput,
-  ) => ReturnType<typeof getInitializeSss2InstructionAsync> &
-    SelfPlanAndSendFunctions;
-  mint: (
-    input: MintInput,
-  ) => ReturnType<typeof getMintInstruction> & SelfPlanAndSendFunctions;
-  pause: (
-    input: PauseInput,
-  ) => ReturnType<typeof getPauseInstruction> & SelfPlanAndSendFunctions;
-  removeFromBlacklist: (
-    input: RemoveFromBlacklistInput,
-  ) => ReturnType<typeof getRemoveFromBlacklistInstruction> &
-    SelfPlanAndSendFunctions;
-  seize: (
-    input: SeizeInput,
-  ) => ReturnType<typeof getSeizeInstruction> & SelfPlanAndSendFunctions;
-  thawAccount: (
-    input: ThawAccountInput,
-  ) => ReturnType<typeof getThawAccountInstruction> & SelfPlanAndSendFunctions;
-  transferAuthority: (
-    input: TransferAuthorityInput,
-  ) => ReturnType<typeof getTransferAuthorityInstruction> &
-    SelfPlanAndSendFunctions;
-  unpause: (
-    input: UnpauseInput,
-  ) => ReturnType<typeof getUnpauseInstruction> & SelfPlanAndSendFunctions;
-  updateMinter: (
-    input: UpdateMinterInput,
-  ) => ReturnType<typeof getUpdateMinterInstruction> & SelfPlanAndSendFunctions;
-  updateRoles: (
-    input: UpdateRolesInput,
-  ) => ReturnType<typeof getUpdateRolesInstruction> & SelfPlanAndSendFunctions;
-};
-
-export type StcProgramPluginRequirements = ClientWithRpc<
-  GetAccountInfoApi & GetMultipleAccountsApi
-> &
-  ClientWithTransactionPlanning &
-  ClientWithTransactionSending;
-
-export function stcProgramProgram() {
-  return <T extends StcProgramPluginRequirements>(client: T) => {
-    return {
-      ...client,
-      stcProgram: <StcProgramPlugin>{
-        accounts: {
-          blacklistEntry: addSelfFetchFunctions(
-            client,
-            getBlacklistEntryCodec(),
-          ),
-          minterQuota: addSelfFetchFunctions(client, getMinterQuotaCodec()),
-          roleAccount: addSelfFetchFunctions(client, getRoleAccountCodec()),
-          stablecoinConfig: addSelfFetchFunctions(
-            client,
-            getStablecoinConfigCodec(),
-          ),
-        },
-        instructions: {
-          addToBlacklist: (input) =>
-            addSelfPlanAndSendFunctions(
-              client,
-              getAddToBlacklistInstruction(input),
-            ),
-          burn: (input) =>
-            addSelfPlanAndSendFunctions(client, getBurnInstruction(input)),
-          freezeAccount: (input) =>
-            addSelfPlanAndSendFunctions(
-              client,
-              getFreezeAccountInstruction(input),
-            ),
-          initialize: (input) =>
-            addSelfPlanAndSendFunctions(
-              client,
-              getInitializeInstructionAsync(input),
-            ),
-          initializePermanentDelegate: (input) =>
-            addSelfPlanAndSendFunctions(
-              client,
-              getInitializePermanentDelegateInstructionAsync(input),
-            ),
-          initializeSss2: (input) =>
-            addSelfPlanAndSendFunctions(
-              client,
-              getInitializeSss2InstructionAsync(input),
-            ),
-          mint: (input) =>
-            addSelfPlanAndSendFunctions(client, getMintInstruction(input)),
-          pause: (input) =>
-            addSelfPlanAndSendFunctions(client, getPauseInstruction(input)),
-          removeFromBlacklist: (input) =>
-            addSelfPlanAndSendFunctions(
-              client,
-              getRemoveFromBlacklistInstruction(input),
-            ),
-          seize: (input) =>
-            addSelfPlanAndSendFunctions(client, getSeizeInstruction(input)),
-          thawAccount: (input) =>
-            addSelfPlanAndSendFunctions(
-              client,
-              getThawAccountInstruction(input),
-            ),
-          transferAuthority: (input) =>
-            addSelfPlanAndSendFunctions(
-              client,
-              getTransferAuthorityInstruction(input),
-            ),
-          unpause: (input) =>
-            addSelfPlanAndSendFunctions(client, getUnpauseInstruction(input)),
-          updateMinter: (input) =>
-            addSelfPlanAndSendFunctions(
-              client,
-              getUpdateMinterInstruction(input),
-            ),
-          updateRoles: (input) =>
-            addSelfPlanAndSendFunctions(
-              client,
-              getUpdateRolesInstruction(input),
-            ),
-        },
-      },
-    };
-  };
 }

@@ -4,6 +4,9 @@
   "description": "SDK for Solana Stablecoin Standard (SSS) Anchor programs",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "sss-token": "dist/cli.js"
+  },
   "scripts": {
     "build": "tsc",
     "generate": "ts-node generate-clients.ts && yarn prettier",
@@ -12,17 +15,19 @@
   "dependencies": {
     "@codama/cli": "^1.5.0",
     "@codama/nodes-from-anchor": "^1.3.9",
-    "@codama/renderers-js": "^2.0.3",
-    "@coral-xyz/anchor": "^0.30.1",
-    "@solana/spl-token": "^0.4.3",
-    "@solana/web3.js": "^1.91.0",
+    "@codama/renderers": "^1.0.34",
+    "@codama/renderers-js": "^1.7.0",
+    "@solana/program-client-core": "^6.1.0",
+    "@solana/spl-token": "^0.4.14",
+    "@solana/web3.js": "^1.98.4",
     "@types/node": "^25.3.5",
     "codama": "^1.5.1",
+    "commander": "^14.0.3",
     "gill": "^0.14.0"
   },
   "devDependencies": {
-    "prettier": "^3.2.5",
+    "prettier": "^3.8.1",
     "ts-node": "^10.9.2",
-    "typescript": "^5.4.0"
+    "typescript": "^5.9.3"
   }
 }

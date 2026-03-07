@@ -7,10 +7,6 @@
  */
 
 import {
-  getAccountMetaFactory,
-  type ResolvedInstructionAccount,
-} from "@solana/program-client-core";
-import {
   combineCodec,
   fixDecoderSize,
   fixEncoderSize,
@@ -18,8 +14,6 @@ import {
   getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
-  SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
-  SolanaError,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -37,6 +31,7 @@ import {
   type WritableAccount,
 } from "gill";
 import { STC_PROGRAM_PROGRAM_ADDRESS } from "../programs";
+import { getAccountMetaFactory, type ResolvedAccount } from "../shared";
 
 export const TRANSFER_AUTHORITY_DISCRIMINATOR = new Uint8Array([
   48, 169, 76, 72, 229, 180, 55, 161,
@@ -143,15 +138,15 @@ export function getTransferAuthorityInstruction<
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedInstructionAccount
+    ResolvedAccount
   >;
 
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta("authority", accounts.authority),
-      getAccountMeta("config", accounts.config),
-      getAccountMeta("newAuthority", accounts.newAuthority),
+      getAccountMeta(accounts.authority),
+      getAccountMeta(accounts.config),
+      getAccountMeta(accounts.newAuthority),
     ],
     data: getTransferAuthorityInstructionDataEncoder().encode({}),
     programAddress,
@@ -188,13 +183,8 @@ export function parseTransferAuthorityInstruction<
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedTransferAuthorityInstruction<TProgram, TAccountMetas> {
   if (instruction.accounts.length < 3) {
-    throw new SolanaError(
-      SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
-      {
-        actualAccountMetas: instruction.accounts.length,
-        expectedAccountMetas: 3,
-      },
-    );
+    // TODO: Coded error.
+    throw new Error("Not enough accounts");
   }
   let accountIndex = 0;
   const getNextAccount = () => {

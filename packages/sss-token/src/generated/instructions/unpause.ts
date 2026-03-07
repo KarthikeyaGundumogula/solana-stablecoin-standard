@@ -7,10 +7,6 @@
  */
 
 import {
-  getAccountMetaFactory,
-  type ResolvedInstructionAccount,
-} from "@solana/program-client-core";
-import {
   combineCodec,
   fixDecoderSize,
   fixEncoderSize,
@@ -18,8 +14,6 @@ import {
   getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
-  SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
-  SolanaError,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -37,6 +31,7 @@ import {
   type WritableAccount,
 } from "gill";
 import { STC_PROGRAM_PROGRAM_ADDRESS } from "../programs";
+import { getAccountMetaFactory, type ResolvedAccount } from "../shared";
 
 export const UNPAUSE_DISCRIMINATOR = new Uint8Array([
   169, 144, 4, 38, 10, 141, 188, 255,
@@ -135,15 +130,15 @@ export function getUnpauseInstruction<
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedInstructionAccount
+    ResolvedAccount
   >;
 
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta("pauser", accounts.pauser),
-      getAccountMeta("config", accounts.config),
-      getAccountMeta("roleAccount", accounts.roleAccount),
+      getAccountMeta(accounts.pauser),
+      getAccountMeta(accounts.config),
+      getAccountMeta(accounts.roleAccount),
     ],
     data: getUnpauseInstructionDataEncoder().encode({}),
     programAddress,
@@ -180,13 +175,8 @@ export function parseUnpauseInstruction<
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedUnpauseInstruction<TProgram, TAccountMetas> {
   if (instruction.accounts.length < 3) {
-    throw new SolanaError(
-      SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
-      {
-        actualAccountMetas: instruction.accounts.length,
-        expectedAccountMetas: 3,
-      },
-    );
+    // TODO: Coded error.
+    throw new Error("Not enough accounts");
   }
   let accountIndex = 0;
   const getNextAccount = () => {

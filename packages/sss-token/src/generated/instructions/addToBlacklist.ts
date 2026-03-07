@@ -7,10 +7,6 @@
  */
 
 import {
-  getAccountMetaFactory,
-  type ResolvedInstructionAccount,
-} from "@solana/program-client-core";
-import {
   combineCodec,
   fixDecoderSize,
   fixEncoderSize,
@@ -18,8 +14,6 @@ import {
   getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
-  SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
-  SolanaError,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -37,6 +31,7 @@ import {
   type WritableSignerAccount,
 } from "gill";
 import { STC_PROGRAM_PROGRAM_ADDRESS } from "../programs";
+import { getAccountMetaFactory, type ResolvedAccount } from "../shared";
 
 export const ADD_TO_BLACKLIST_DISCRIMINATOR = new Uint8Array([
   90, 115, 98, 231, 173, 119, 117, 176,
@@ -179,7 +174,7 @@ export function getAddToBlacklistInstruction<
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedInstructionAccount
+    ResolvedAccount
   >;
 
   // Resolve default values.
@@ -191,12 +186,12 @@ export function getAddToBlacklistInstruction<
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta("blacklister", accounts.blacklister),
-      getAccountMeta("config", accounts.config),
-      getAccountMeta("roleAccount", accounts.roleAccount),
-      getAccountMeta("addressToBlacklist", accounts.addressToBlacklist),
-      getAccountMeta("blacklistEntry", accounts.blacklistEntry),
-      getAccountMeta("systemProgram", accounts.systemProgram),
+      getAccountMeta(accounts.blacklister),
+      getAccountMeta(accounts.config),
+      getAccountMeta(accounts.roleAccount),
+      getAccountMeta(accounts.addressToBlacklist),
+      getAccountMeta(accounts.blacklistEntry),
+      getAccountMeta(accounts.systemProgram),
     ],
     data: getAddToBlacklistInstructionDataEncoder().encode({}),
     programAddress,
@@ -241,13 +236,8 @@ export function parseAddToBlacklistInstruction<
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedAddToBlacklistInstruction<TProgram, TAccountMetas> {
   if (instruction.accounts.length < 6) {
-    throw new SolanaError(
-      SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
-      {
-        actualAccountMetas: instruction.accounts.length,
-        expectedAccountMetas: 6,
-      },
-    );
+    // TODO: Coded error.
+    throw new Error("Not enough accounts");
   }
   let accountIndex = 0;
   const getNextAccount = () => {

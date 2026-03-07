@@ -7,10 +7,6 @@
  */
 
 import {
-  getAccountMetaFactory,
-  type ResolvedInstructionAccount,
-} from "@solana/program-client-core";
-import {
   combineCodec,
   fixDecoderSize,
   fixEncoderSize,
@@ -20,8 +16,6 @@ import {
   getStructEncoder,
   getU64Decoder,
   getU64Encoder,
-  SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
-  SolanaError,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -39,6 +33,7 @@ import {
   type WritableAccount,
 } from "gill";
 import { STC_PROGRAM_PROGRAM_ADDRESS } from "../programs";
+import { getAccountMetaFactory, type ResolvedAccount } from "../shared";
 
 export const SEIZE_DISCRIMINATOR = new Uint8Array([
   129, 159, 143, 31, 161, 224, 241, 84,
@@ -199,7 +194,7 @@ export function getSeizeInstruction<
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedInstructionAccount
+    ResolvedAccount
   >;
 
   // Original args.
@@ -214,13 +209,13 @@ export function getSeizeInstruction<
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta("seizer", accounts.seizer),
-      getAccountMeta("config", accounts.config),
-      getAccountMeta("roleAccount", accounts.roleAccount),
-      getAccountMeta("mint", accounts.mint),
-      getAccountMeta("sourceTokenAccount", accounts.sourceTokenAccount),
-      getAccountMeta("treasuryTokenAccount", accounts.treasuryTokenAccount),
-      getAccountMeta("tokenProgram", accounts.tokenProgram),
+      getAccountMeta(accounts.seizer),
+      getAccountMeta(accounts.config),
+      getAccountMeta(accounts.roleAccount),
+      getAccountMeta(accounts.mint),
+      getAccountMeta(accounts.sourceTokenAccount),
+      getAccountMeta(accounts.treasuryTokenAccount),
+      getAccountMeta(accounts.tokenProgram),
     ],
     data: getSeizeInstructionDataEncoder().encode(
       args as SeizeInstructionDataArgs,
@@ -270,13 +265,8 @@ export function parseSeizeInstruction<
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedSeizeInstruction<TProgram, TAccountMetas> {
   if (instruction.accounts.length < 7) {
-    throw new SolanaError(
-      SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
-      {
-        actualAccountMetas: instruction.accounts.length,
-        expectedAccountMetas: 7,
-      },
-    );
+    // TODO: Coded error.
+    throw new Error("Not enough accounts");
   }
   let accountIndex = 0;
   const getNextAccount = () => {

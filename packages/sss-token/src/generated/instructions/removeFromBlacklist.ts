@@ -7,10 +7,6 @@
  */
 
 import {
-  getAccountMetaFactory,
-  type ResolvedInstructionAccount,
-} from "@solana/program-client-core";
-import {
   combineCodec,
   fixDecoderSize,
   fixEncoderSize,
@@ -18,8 +14,6 @@ import {
   getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
-  SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
-  SolanaError,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -37,6 +31,7 @@ import {
   type WritableSignerAccount,
 } from "gill";
 import { STC_PROGRAM_PROGRAM_ADDRESS } from "../programs";
+import { getAccountMetaFactory, type ResolvedAccount } from "../shared";
 
 export const REMOVE_FROM_BLACKLIST_DISCRIMINATOR = new Uint8Array([
   47, 105, 20, 10, 165, 168, 203, 219,
@@ -171,17 +166,17 @@ export function getRemoveFromBlacklistInstruction<
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedInstructionAccount
+    ResolvedAccount
   >;
 
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta("blacklister", accounts.blacklister),
-      getAccountMeta("config", accounts.config),
-      getAccountMeta("roleAccount", accounts.roleAccount),
-      getAccountMeta("addressToRemove", accounts.addressToRemove),
-      getAccountMeta("blacklistEntry", accounts.blacklistEntry),
+      getAccountMeta(accounts.blacklister),
+      getAccountMeta(accounts.config),
+      getAccountMeta(accounts.roleAccount),
+      getAccountMeta(accounts.addressToRemove),
+      getAccountMeta(accounts.blacklistEntry),
     ],
     data: getRemoveFromBlacklistInstructionDataEncoder().encode({}),
     programAddress,
@@ -224,13 +219,8 @@ export function parseRemoveFromBlacklistInstruction<
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedRemoveFromBlacklistInstruction<TProgram, TAccountMetas> {
   if (instruction.accounts.length < 5) {
-    throw new SolanaError(
-      SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
-      {
-        actualAccountMetas: instruction.accounts.length,
-        expectedAccountMetas: 5,
-      },
-    );
+    // TODO: Coded error.
+    throw new Error("Not enough accounts");
   }
   let accountIndex = 0;
   const getNextAccount = () => {

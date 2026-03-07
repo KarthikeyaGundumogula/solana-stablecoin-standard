@@ -7,11 +7,6 @@
  */
 
 import {
-  getAccountMetaFactory,
-  getAddressFromResolvedInstructionAccount,
-  type ResolvedInstructionAccount,
-} from "@solana/program-client-core";
-import {
   addDecoderSizePrefix,
   addEncoderSizePrefix,
   combineCodec,
@@ -29,8 +24,6 @@ import {
   getU8Encoder,
   getUtf8Decoder,
   getUtf8Encoder,
-  SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
-  SolanaError,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -48,6 +41,11 @@ import {
   type WritableSignerAccount,
 } from "gill";
 import { STC_PROGRAM_PROGRAM_ADDRESS } from "../programs";
+import {
+  expectAddress,
+  getAccountMetaFactory,
+  type ResolvedAccount,
+} from "../shared";
 
 export const INITIALIZE_SSS2_DISCRIMINATOR = new Uint8Array([
   55, 253, 209, 103, 146, 222, 48, 2,
@@ -219,7 +217,7 @@ export async function getInitializeSss2InstructionAsync<
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedInstructionAccount
+    ResolvedAccount
   >;
 
   // Original args.
@@ -236,9 +234,7 @@ export async function getInitializeSss2InstructionAsync<
             102, 105, 103,
           ]),
         ),
-        getAddressEncoder().encode(
-          getAddressFromResolvedInstructionAccount("mint", accounts.mint.value),
-        ),
+        getAddressEncoder().encode(expectAddress(accounts.mint.value)),
       ],
     });
   }
@@ -254,12 +250,12 @@ export async function getInitializeSss2InstructionAsync<
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta("authority", accounts.authority),
-      getAccountMeta("config", accounts.config),
-      getAccountMeta("mint", accounts.mint),
-      getAccountMeta("transferHookProgram", accounts.transferHookProgram),
-      getAccountMeta("tokenProgram", accounts.tokenProgram),
-      getAccountMeta("systemProgram", accounts.systemProgram),
+      getAccountMeta(accounts.authority),
+      getAccountMeta(accounts.config),
+      getAccountMeta(accounts.mint),
+      getAccountMeta(accounts.transferHookProgram),
+      getAccountMeta(accounts.tokenProgram),
+      getAccountMeta(accounts.systemProgram),
     ],
     data: getInitializeSss2InstructionDataEncoder().encode(
       args as InitializeSss2InstructionDataArgs,
@@ -348,7 +344,7 @@ export function getInitializeSss2Instruction<
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedInstructionAccount
+    ResolvedAccount
   >;
 
   // Original args.
@@ -367,12 +363,12 @@ export function getInitializeSss2Instruction<
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta("authority", accounts.authority),
-      getAccountMeta("config", accounts.config),
-      getAccountMeta("mint", accounts.mint),
-      getAccountMeta("transferHookProgram", accounts.transferHookProgram),
-      getAccountMeta("tokenProgram", accounts.tokenProgram),
-      getAccountMeta("systemProgram", accounts.systemProgram),
+      getAccountMeta(accounts.authority),
+      getAccountMeta(accounts.config),
+      getAccountMeta(accounts.mint),
+      getAccountMeta(accounts.transferHookProgram),
+      getAccountMeta(accounts.tokenProgram),
+      getAccountMeta(accounts.systemProgram),
     ],
     data: getInitializeSss2InstructionDataEncoder().encode(
       args as InitializeSss2InstructionDataArgs,
@@ -422,13 +418,8 @@ export function parseInitializeSss2Instruction<
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedInitializeSss2Instruction<TProgram, TAccountMetas> {
   if (instruction.accounts.length < 6) {
-    throw new SolanaError(
-      SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
-      {
-        actualAccountMetas: instruction.accounts.length,
-        expectedAccountMetas: 6,
-      },
-    );
+    // TODO: Coded error.
+    throw new Error("Not enough accounts");
   }
   let accountIndex = 0;
   const getNextAccount = () => {
