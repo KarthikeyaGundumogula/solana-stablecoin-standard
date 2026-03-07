@@ -1,8 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::invoke;
-use anchor_spl::token_2022::spl_token_2022::{
-    self, extension::ExtensionType, instruction::set_authority, state::Mint as MintState,
-};
+use anchor_spl::token_2022::spl_token_2022::{self, instruction::set_authority};
 use anchor_spl::token_interface::{
     spl_token_metadata_interface::state::TokenMetadata, token_metadata_initialize, Mint,
     TokenInterface, TokenMetadataInitialize,
@@ -11,17 +9,18 @@ use anchor_spl::token_interface::{
 use crate::state::*;
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
-pub struct InitializeArgs {
+pub struct InitializeSss2Args {
     pub name: String,
     pub symbol: String,
     pub uri: String,
     pub decimals: u8,
 }
 
-/// SSS-1 Initialize: creates a Token-2022 mint with MetadataPointer only.
+/// SSS-2 Initialize: creates a Token-2022 mint with MetadataPointer + TransferHook +
+/// PermanentDelegate + DefaultAccountState(Frozen).
 #[derive(Accounts)]
-#[instruction(args: InitializeArgs)]
-pub struct Initialize<'info> {
+#[instruction(args: InitializeSss2Args)]
+pub struct InitializeSss2<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
 
@@ -34,6 +33,11 @@ pub struct Initialize<'info> {
     )]
     pub config: Account<'info, StablecoinConfig>,
 
+    /// Token-2022 mint with all SSS-2 extensions.
+    /// - MetadataPointer: on-chain metadata stored in the mint
+    /// - TransferHook: calls transfer_hook_program on every transfer
+    /// - PermanentDelegate: config PDA can seize tokens from any account
+    /// - DefaultAccountState: new token accounts start Frozen
     #[account(
         init,
         payer = authority,
@@ -42,14 +46,24 @@ pub struct Initialize<'info> {
         mint::freeze_authority = config,
         extensions::metadata_pointer::authority = authority,
         extensions::metadata_pointer::metadata_address = mint.key(),
+        extensions::transfer_hook::authority = authority,
+        extensions::transfer_hook::program_id = transfer_hook_program.key(),
+        extensions::permanent_delegate::delegate = config,
     )]
     pub mint: InterfaceAccount<'info, Mint>,
+
+    /// The transfer hook program that enforces blacklist checks
+    /// CHECK: Stored in the mint's TransferHook extension
+    pub transfer_hook_program: UncheckedAccount<'info>,
 
     pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
 }
 
-pub fn handler_initialize(ctx: Context<Initialize>, args: InitializeArgs) -> Result<()> {
+pub fn handler_initialize_sss2(
+    ctx: Context<InitializeSss2>,
+    args: InitializeSss2Args,
+) -> Result<()> {
     // 1. Transfer extra lamports for metadata storage
     let token_metadata = TokenMetadata {
         update_authority: Some(ctx.accounts.authority.key()).try_into().unwrap(),
@@ -60,12 +74,11 @@ pub fn handler_initialize(ctx: Context<Initialize>, args: InitializeArgs) -> Res
         additional_metadata: vec![],
     };
 
-    let mint_space =
-        ExtensionType::try_calculate_account_len::<MintState>(&[ExtensionType::MetadataPointer])?;
     let metadata_len = token_metadata.tlv_size_of()?;
-    let rent = Rent::get()?;
-    let required_rent = rent.minimum_balance(mint_space + metadata_len);
+    let current_data_len = ctx.accounts.mint.to_account_info().data_len();
     let current_lamports = ctx.accounts.mint.to_account_info().lamports();
+
+    let required_rent = Rent::get()?.minimum_balance(current_data_len + metadata_len + 16);
 
     if required_rent > current_lamports {
         anchor_lang::system_program::transfer(
@@ -107,19 +120,20 @@ pub fn handler_initialize(ctx: Context<Initialize>, args: InitializeArgs) -> Res
         ],
     )?;
 
-    // 4. Initialize config PDA
+    // 4. Initialize config PDA with SSS-2 flags enabled
     let config = &mut ctx.accounts.config;
     config.mint = ctx.accounts.mint.key();
     config.master_authority = ctx.accounts.authority.key();
     config.decimals = args.decimals;
     config.is_paused = false;
-    config.enable_permanent_delegate = false;
-    config.enable_transfer_hook = false;
+    config.enable_permanent_delegate = true;
+    config.enable_transfer_hook = true;
     config.bump = ctx.bumps.config;
 
     msg!(
-        "SSS-1 Stablecoin initialized: mint={}",
-        ctx.accounts.mint.key()
+        "SSS-2 Stablecoin initialized: mint={}, transfer_hook={}",
+        ctx.accounts.mint.key(),
+        ctx.accounts.transfer_hook_program.key()
     );
     Ok(())
 }

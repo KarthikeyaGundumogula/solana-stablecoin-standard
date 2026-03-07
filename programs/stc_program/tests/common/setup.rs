@@ -3,6 +3,7 @@ use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
 use std::path::PathBuf;
 
 use stc_program::ID as STC_PROGRAM_ID;
+use transfer_hook;
 
 use super::fixtures::*;
 
@@ -24,7 +25,6 @@ impl Setup {
     pub fn new() -> Self {
         let mut svm = LiteSVM::new();
 
-        // Create keypairs for all roles
         let authority = Keypair::new();
         let minter = Keypair::new();
         let burner = Keypair::new();
@@ -33,7 +33,6 @@ impl Setup {
         let seizer = Keypair::new();
         let user = Keypair::new();
 
-        // Airdrop SOL to all accounts
         for kp in [
             &authority,
             &minter,
@@ -48,14 +47,18 @@ impl Setup {
         }
 
         let program_id = Pubkey::from_str_const(&STC_PROGRAM_ID.to_string());
-
-        // Load stc_program
         Self::load_program(&mut svm, program_id, "stc_program.so");
+
+        // Load transfer_hook so Token-2022 can invoke it during transfer_checked CPIs
+        let hook_program_id = Pubkey::from_str_const(&transfer_hook::ID.to_string());
+        let hook_so_path =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../target/deploy/transfer_hook.so");
+        svm.add_program_from_file(hook_program_id, &hook_so_path)
+            .expect("Failed to load transfer_hook.so — run `anchor build` first");
 
         let mint_signer = Keypair::new();
         let mint = mint_signer.pubkey();
 
-        // Derive config PDA
         let (config, _) =
             Pubkey::find_program_address(&[b"stablecoin_config", mint.as_ref()], &program_id);
 
@@ -74,7 +77,7 @@ impl Setup {
         }
     }
 
-    fn load_program(svm: &mut LiteSVM, program_id: Pubkey, so_name: &str) {
+    pub fn load_program(svm: &mut LiteSVM, program_id: Pubkey, so_name: &str) {
         let so_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../../target/deploy")
             .join(so_name);
@@ -99,6 +102,16 @@ impl Setup {
         Pubkey::find_program_address(
             &[b"minter_quota", self.mint.as_ref(), minter.as_ref()],
             &program_id,
+        )
+        .0
+    }
+
+    /// Derive the ExtraAccountMetaList PDA for the transfer hook program
+    pub fn extra_meta_pda(&self) -> Pubkey {
+        let hook_program_id = Pubkey::from_str_const(&transfer_hook::ID.to_string());
+        Pubkey::find_program_address(
+            &[b"extra-account-metas", self.mint.as_ref()],
+            &hook_program_id,
         )
         .0
     }

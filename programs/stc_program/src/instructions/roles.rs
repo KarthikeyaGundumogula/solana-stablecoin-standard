@@ -53,11 +53,17 @@ pub struct UpdateRoles<'info> {
 pub fn handler_update_roles(ctx: Context<UpdateRoles>, args: UpdateRolesArgs) -> Result<()> {
     let config = &ctx.accounts.config;
 
-    // SSS-2 roles (Blacklister, Seizer) require compliance to be enabled
+    // SSS-2 roles require their respective compliance flags to be enabled
     match args.role_type {
-        RoleType::Blacklister | RoleType::Seizer => {
+        RoleType::Blacklister => {
             require!(
-                config.enable_permanent_delegate && config.enable_transfer_hook,
+                config.enable_transfer_hook,
+                StablecoinError::ComplianceNotEnabled
+            );
+        }
+        RoleType::Seizer => {
+            require!(
+                config.enable_permanent_delegate,
                 StablecoinError::ComplianceNotEnabled
             );
         }

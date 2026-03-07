@@ -34,3 +34,4 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"
 litesvm = "0.9.1"
 litesvm-token = "0.9.1"
 solana-sdk = "3.0.0"
+transfer_hook = { path = "../transfer_hook", features = ["no-entrypoint"] }

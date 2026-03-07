@@ -17,9 +17,27 @@ pub mod stc_program {
     // Core Instructions (All Presets — SSS-1 & SSS-2)
     // ============================================================
 
-    /// Initialize a new stablecoin with Token-2022 extensions.
+    /// Initialize a new SSS-1 stablecoin with Token-2022 (MetadataPointer only).
     pub fn initialize(ctx: Context<Initialize>, args: InitializeArgs) -> Result<()> {
         instructions::initialize::handler_initialize(ctx, args)
+    }
+
+    /// Initialize SSS-2 with MetadataPointer + PermanentDelegate only (no TransferHook).
+    /// Useful when you want seize capability without hook-enforced blacklisting.
+    pub fn initialize_permanent_delegate(
+        ctx: Context<InitializePermanentDelegate>,
+        args: InitializePermanentDelegateArgs,
+    ) -> Result<()> {
+        instructions::initialize_permanent_delegate::handler_initialize_permanent_delegate(
+            ctx, args,
+        )
+    }
+
+    /// Initialize a new SSS-2 stablecoin with full compliance extensions
+
+    /// (MetadataPointer + TransferHook + PermanentDelegate).
+    pub fn initialize_sss2(ctx: Context<InitializeSss2>, args: InitializeSss2Args) -> Result<()> {
+        instructions::initialize_sss2::handler_initialize_sss2(ctx, args)
     }
 
     /// Mint tokens to a recipient. Requires Minter role with quota.

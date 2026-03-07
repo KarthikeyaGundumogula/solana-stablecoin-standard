@@ -2,17 +2,43 @@ use anchor_lang::{system_program::ID as SYSTEM_PROGRAM, InstructionData, ToAccou
 use solana_sdk::{message::Instruction, signer::Signer};
 
 use stc_program;
+use transfer_hook;
 
 use super::fixtures::*;
 use super::setup::Setup;
 use crate::helpers::convert_account_metas;
 
-/// Build the initialize instruction (SSS-1 or SSS-2 depending on flags)
-pub fn initialize_builder(
-    setup: &Setup,
-    enable_permanent_delegate: bool,
-    enable_transfer_hook: bool,
-) -> Instruction {
+/// Build the initialize_extra_account_meta_list instruction on the transfer_hook program.
+/// Must be called after SSS-2 mint init, before any transfer_checked or seize on that mint.
+pub fn init_hook_meta_builder(setup: &Setup) -> Instruction {
+    let hook_program_id = transfer_hook_program_id();
+    let extra_meta_pda = setup.extra_meta_pda();
+
+    let anchor_accounts = transfer_hook::accounts::InitializeExtraAccountMetaList {
+        payer: setup.authority.pubkey().to_pubkey(),
+        extra_account_meta_list: extra_meta_pda.to_pubkey(),
+        mint: setup.mint.to_pubkey(),
+        stc_program_id: stc_program::ID.into(),
+        system_program: SYSTEM_PROGRAM,
+    }
+    .to_account_metas(None);
+    let sdk_accounts = convert_account_metas(anchor_accounts);
+
+    let data = transfer_hook::instruction::InitializeExtraAccountMetaList {}.data();
+
+    Instruction {
+        program_id: hook_program_id.to_address(),
+        accounts: sdk_accounts,
+        data,
+    }
+}
+
+pub fn transfer_hook_program_id() -> anchor_lang::prelude::Pubkey {
+    anchor_lang::prelude::Pubkey::from_str_const(&transfer_hook::ID.to_string())
+}
+
+/// Build the SSS-1 initialize instruction (MetadataPointer only)
+pub fn initialize_builder(setup: &Setup) -> Instruction {
     let anchor_accounts = stc_program::accounts::Initialize {
         authority: setup.authority.pubkey().to_pubkey(),
         config: setup.config.to_pubkey(),
@@ -29,8 +55,6 @@ pub fn initialize_builder(
             symbol: "TUSD".to_string(),
             uri: "https://example.com/tusd".to_string(),
             decimals: MINT_DECIMALS,
-            enable_permanent_delegate,
-            enable_transfer_hook,
         },
     }
     .data();
@@ -41,6 +65,102 @@ pub fn initialize_builder(
         data,
     }
 }
+
+/// Build the SSS-2 initialize instruction (MetadataPointer + TransferHook + PermanentDelegate)
+pub fn initialize_sss2_builder(
+    setup: &Setup,
+    transfer_hook_program_id: &anchor_lang::prelude::Pubkey,
+) -> Instruction {
+    let anchor_accounts = stc_program::accounts::InitializeSss2 {
+        authority: setup.authority.pubkey().to_pubkey(),
+        config: setup.config.to_pubkey(),
+        mint: setup.mint_signer.pubkey().to_pubkey(),
+        transfer_hook_program: *transfer_hook_program_id,
+        token_program: TOKEN_2022_PROGRAM_ID,
+        system_program: SYSTEM_PROGRAM,
+    }
+    .to_account_metas(None);
+    let sdk_accounts = convert_account_metas(anchor_accounts);
+
+    let data = stc_program::instruction::InitializeSss2 {
+        args: stc_program::InitializeSss2Args {
+            name: "Test Stablecoin SSS2".to_string(),
+            symbol: "TUSD2".to_string(),
+            uri: "https://example.com/tusd2".to_string(),
+            decimals: MINT_DECIMALS,
+        },
+    }
+    .data();
+
+    Instruction {
+        program_id: stc_program::ID.to_address(),
+        accounts: sdk_accounts,
+        data,
+    }
+}
+
+/// Build the initialize_permanent_delegate instruction (MetadataPointer + PermanentDelegate only).
+/// Use this for seize tests — no TransferHook means no 3-level CPI depth into the hook.
+pub fn initialize_permanent_delegate_builder(setup: &Setup) -> Instruction {
+    let anchor_accounts = stc_program::accounts::InitializePermanentDelegate {
+        authority: setup.authority.pubkey().to_pubkey(),
+        config: setup.config.to_pubkey(),
+        mint: setup.mint_signer.pubkey().to_pubkey(),
+        token_program: TOKEN_2022_PROGRAM_ID,
+        system_program: SYSTEM_PROGRAM,
+    }
+    .to_account_metas(None);
+    let sdk_accounts = convert_account_metas(anchor_accounts);
+
+    let data = stc_program::instruction::InitializePermanentDelegate {
+        args: stc_program::InitializePermanentDelegateArgs {
+            name: "Test Stablecoin PD".to_string(),
+            symbol: "TUSDPD".to_string(),
+            uri: "https://example.com/tusdpd".to_string(),
+            decimals: MINT_DECIMALS,
+        },
+    }
+    .data();
+
+    Instruction {
+        program_id: stc_program::ID.to_address(),
+        accounts: sdk_accounts,
+        data,
+    }
+}
+
+/// Build the seize instruction (SSS-2 permanent delegate).
+/// Works with PermanentDelegate-only mints (no TransferHook extension).
+pub fn seize_builder(
+    setup: &Setup,
+    source_token_account: &anchor_lang::prelude::Pubkey,
+    treasury_token_account: &anchor_lang::prelude::Pubkey,
+    amount: u64,
+) -> Instruction {
+    let role_pda = setup.role_pda(&setup.seizer.pubkey(), 4); // Seizer = 4
+
+    let sdk_accounts = convert_account_metas(
+        stc_program::accounts::Seize {
+            seizer: setup.seizer.pubkey().to_pubkey(),
+            config: setup.config.to_pubkey(),
+            role_account: role_pda.to_pubkey(),
+            mint: setup.mint.to_pubkey(),
+            source_token_account: *source_token_account,
+            treasury_token_account: *treasury_token_account,
+            token_program: TOKEN_2022_PROGRAM_ID,
+        }
+        .to_account_metas(None),
+    );
+
+    let data = stc_program::instruction::Seize { amount }.data();
+
+    Instruction {
+        program_id: stc_program::ID.to_address(),
+        accounts: sdk_accounts,
+        data,
+    }
+}
+
 
 /// Build the update_minter instruction
 pub fn update_minter_builder(

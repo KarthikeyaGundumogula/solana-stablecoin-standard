@@ -18,7 +18,7 @@ fn test_initialize_sss1() {
     let setup = Setup::new();
     let authority = setup.authority.pubkey().to_pubkey();
 
-    let ix = initialize_builder(&setup, false, false);
+    let ix = initialize_builder(&setup);
     send_transaction(
         &[ix],
         &mut setup.svm.clone(),
@@ -37,7 +37,7 @@ fn test_full_sss1_flow() {
     let authority = setup.authority.pubkey().to_pubkey();
 
     // 1. Initialize SSS-1 stablecoin
-    let init_ix = initialize_builder(&setup, false, false);
+    let init_ix = initialize_builder(&setup);
     send_transaction(
         &[init_ix],
         &mut setup.svm,
@@ -155,7 +155,7 @@ fn test_unauthorized_mint_fails() {
     let authority = setup.authority.pubkey().to_pubkey();
 
     // 1. Initialize
-    let init_ix = initialize_builder(&setup, false, false);
+    let init_ix = initialize_builder(&setup);
     send_transaction(
         &[init_ix],
         &mut setup.svm,
@@ -194,7 +194,7 @@ fn test_freeze_thaw() {
     let authority = setup.authority.pubkey().to_pubkey();
 
     // Initialize
-    let init_ix = initialize_builder(&setup, false, false);
+    let init_ix = initialize_builder(&setup);
     send_transaction(
         &[init_ix],
         &mut setup.svm,
@@ -244,7 +244,7 @@ fn test_transfer_authority() {
     let new_authority = setup.user.pubkey().to_pubkey();
 
     // Initialize
-    let init_ix = initialize_builder(&setup, false, false);
+    let init_ix = initialize_builder(&setup);
     send_transaction(
         &[init_ix],
         &mut setup.svm,
