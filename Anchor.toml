@@ -18,3 +18,4 @@ wallet = "~/.config/solana/id.json"
 
 [scripts]
 test = "cargo test"
+generate-clients = "bash packages/codama-scripts/generate-clients.sh"

@@ -1,0 +1,31 @@
+{
+  "idl": "/Users/karthikeya/Documents/Rust/solana-stablecoin-standard/target/idl/stc_program.json",
+  "before": [],
+  "scripts": {
+    "js": {
+      "from": "@codama/renderers-js",
+      "args": [
+        "/Users/karthikeya/Documents/Rust/solana-stablecoin-standard/packages/sss-token/src/generated",
+        {
+          "dependencyMap": {
+            "solanaAccounts": "gill",
+            "solanaAddresses": "gill",
+            "solanaCodecsCore": "gill",
+            "solanaCodecsDataStructures": "gill",
+            "solanaCodecsNumbers": "gill",
+            "solanaCodecsStrings": "gill",
+            "solanaErrors": "gill",
+            "solanaInstructions": "gill",
+            "solanaOptions": "gill",
+            "solanaPrograms": "gill",
+            "solanaRpcTypes": "gill",
+            "solanaSigners": "gill"
+          },
+          "dependencyVersions": {
+            "gill": "^0.14.0"
+          }
+        }
+      ]
+    }
+  }
+}
