@@ -5,3 +5,6 @@ target
 node_modules
 test-ledger
 .yarn
+packages/sss-token/dist
+packages/sss-token/src/generated
+packages/sss-token/dist-cli
