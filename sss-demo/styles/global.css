@@ -1,0 +1,120 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+:root {
+  --bg: #080a0e;
+  --surface: #0e1117;
+  --surface2: #151b24;
+  --border: #1e2a38;
+  --border-bright: #2a3a4e;
+  --primary: #00d4ff;
+  --primary-dim: rgba(0, 212, 255, 0.12);
+  --primary-glow: rgba(0, 212, 255, 0.25);
+  --green: #00ff94;
+  --green-dim: rgba(0, 255, 148, 0.1);
+  --red: #ff4566;
+  --red-dim: rgba(255, 69, 102, 0.1);
+  --yellow: #ffd166;
+  --yellow-dim: rgba(255, 209, 102, 0.1);
+  --text: #e2eaf4;
+  --text-muted: #5a7a9a;
+  --text-dim: #2a4a6a;
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'IBM Plex Sans', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scanline overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.03) 2px,
+    rgba(0, 0, 0, 0.03) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+a { color: var(--primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+input, select, textarea {
+  font-family: var(--mono);
+  font-size: 13px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 8px 12px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+input:focus, select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-dim);
+}
+
+button {
+  font-family: var(--mono);
+  cursor: pointer;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.15s;
+  letter-spacing: 0.05em;
+}
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+
+/* Wallet adapter overrides */
+.wallet-adapter-button {
+  font-family: var(--mono) !important;
+  font-size: 12px !important;
+  background: var(--surface2) !important;
+  border: 1px solid var(--border-bright) !important;
+  border-radius: 4px !important;
+  height: 36px !important;
+  padding: 0 16px !important;
+  letter-spacing: 0.05em !important;
+}
+.wallet-adapter-button:hover {
+  background: var(--primary-dim) !important;
+  border-color: var(--primary) !important;
+}
+.wallet-adapter-modal-wrapper {
+  background: var(--surface) !important;
+  border: 1px solid var(--border-bright) !important;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
