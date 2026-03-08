@@ -2,7 +2,18 @@
 import { Command } from "commander";
 import { SolanaStablecoin, Presets } from "./index";
 // Assumes standard connection setup... (skipping actual robust config loading for local testing brevity)
-import { createSolanaClient, generateKeyPairSigner, type Address } from "gill";
+import {
+  createSolanaClient,
+  generateKeyPairSigner,
+  createKeyPairSignerFromBytes,
+  airdropFactory,
+  lamports,
+  type Address,
+} from "gill";
+import * as dotenv from "dotenv";
+import * as fs from "fs";
+
+dotenv.config();
 
 const program = new Command();
 
@@ -20,23 +31,69 @@ program
   .action(async (options) => {
     console.log(`Initializing stablecoin with preset: ${options.preset}`);
 
+    const rpcUrl = process.env.RPC_URL || "localnet";
+    console.log(`Connecting to network: ${rpcUrl}`);
+
     // Setup client
-    const { rpc, sendAndConfirmTransaction } = createSolanaClient({
-      urlOrMoniker: "localnet",
-    });
-    const admin = await generateKeyPairSigner();
-    const mint = await generateKeyPairSigner();
+    const { rpc, rpcSubscriptions, sendAndConfirmTransaction } =
+      createSolanaClient({
+        urlOrMoniker: rpcUrl as any,
+      });
+
+    let admin;
+    if (process.env.ADMIN_KEYPAIR) {
+      const secretKey = new Uint8Array(
+        JSON.parse(fs.readFileSync(process.env.ADMIN_KEYPAIR, "utf-8")),
+      );
+      admin = await createKeyPairSignerFromBytes(secretKey);
+    } else {
+      console.warn(
+        "⚠️ No ADMIN_KEYPAIR found in .env, generating ephemeral wallet...",
+      );
+      admin = await generateKeyPairSigner();
+    }
+
+    let mint;
+    if (process.env.MINT_KEYPAIR) {
+      const secretKey = new Uint8Array(
+        JSON.parse(fs.readFileSync(process.env.MINT_KEYPAIR, "utf-8")),
+      );
+      mint = await createKeyPairSignerFromBytes(secretKey);
+    } else {
+      mint = await generateKeyPairSigner();
+    }
 
     console.log(`Using admin keypair: ${admin.address}`);
-    console.log(`Generated mint address: ${mint.address}`);
+    console.log(`Using mint address: ${mint.address}`);
+
+    if (
+      rpcUrl === "localnet" ||
+      rpcUrl === "http://127.0.0.1:8899" ||
+      rpcUrl === "http://localhost:8899"
+    ) {
+      console.log("Airdropping 1 SOL for fee payment on localnet...");
+      try {
+        // @ts-ignore
+        const airdrop = airdropFactory({ rpc, rpcSubscriptions });
+        await airdrop({
+          commitment: "confirmed",
+          recipientAddress: admin.address,
+          lamports: lamports(1_000_000_000n),
+        });
+      } catch (e) {
+        console.warn(
+          "⚠️ Airdrop failed (wallet might already have SOL or validator isn't local)",
+        );
+      }
+    }
 
     const preset = options.preset === "sss-2" ? Presets.SSS_2 : Presets.SSS_1;
 
     // In a real CLI, we'd persist this details (or load default keypairs from ~/.config/solana)
     // For this boilerplate, we'll just demonstrate the SDK call.
     try {
-      const { stablecoin } = await SolanaStablecoin.create(
-        { rpc, sendAndConfirmTransaction },
+      const { stablecoin, tx } = await SolanaStablecoin.create(
+        { rpc: rpc as any, sendAndConfirmTransaction },
         {
           preset,
           name: options.name,
@@ -53,7 +110,13 @@ program
         },
       );
 
-      console.log(`✅ Successfully initialized SSS Token: ${stablecoin.mint}`);
+      // Send the transaction to the network
+      const signature = await sendAndConfirmTransaction!(tx as any, {
+        commitment: "confirmed",
+      });
+
+      console.log(`✅ Successfully sent tx! Signature: ${signature}`);
+      console.log(`✅ Initialized SSS Token: ${stablecoin.mint}`);
     } catch (e: any) {
       console.error(`❌ Failed to initialize token: ${e.message}`);
     }

@@ -2,13 +2,22 @@
   "name": "@stbr/sss-token",
   "version": "0.1.0",
   "description": "SDK for Solana Stablecoin Standard (SSS) Anchor programs",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "bin": {
-    "sss-token": "dist/cli.js"
+    "sss-token": "dist-cli/cli.js"
   },
   "scripts": {
     "build": "tsc",
+    "build:cli": "esbuild src/cli.ts --bundle --platform=node --format=esm --outfile=dist-cli/cli.js --packages=external",
     "generate": "ts-node generate-clients.ts && yarn prettier",
     "prettier": "prettier --write \"src/generated/**/*.ts\""
   },
@@ -23,9 +32,11 @@
     "@types/node": "^25.3.5",
     "codama": "^1.5.1",
     "commander": "^14.0.3",
+    "dotenv": "^17.3.1",
     "gill": "^0.14.0"
   },
   "devDependencies": {
+    "esbuild": "^0.27.3",
     "prettier": "^3.8.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
