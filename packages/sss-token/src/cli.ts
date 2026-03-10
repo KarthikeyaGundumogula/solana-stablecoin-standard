@@ -42,7 +42,8 @@ async function getStablecoinClient(mintStr: string) {
   const { Keypair } = await import("@solana/web3.js");
   const adminKeypair = Keypair.fromSecretKey(secretKey);
 
-  const transferHookProgramId = (process.env.TRANSFER_HOOK_PROGRAM_ID || "FtPdSNiQ8ieM4yE1V8FekUk7WDbgZrx9ehb3CyaXzHtG") as Address;
+  const transferHookProgramId = (process.env.TRANSFER_HOOK_PROGRAM_ID ||
+    "FtPdSNiQ8ieM4yE1V8FekUk7WDbgZrx9ehb3CyaXzHtG") as Address;
 
   const stablecoin = new SolanaStablecoin(
     { rpc: rpc as any, sendAndConfirmTransaction },
@@ -51,10 +52,21 @@ async function getStablecoinClient(mintStr: string) {
     transferHookProgramId,
   );
 
-  return { stablecoin, admin, adminKeypair, rpcUrl, rpc, sendAndConfirmTransaction };
+  return {
+    stablecoin,
+    admin,
+    adminKeypair,
+    rpcUrl,
+    rpc,
+    sendAndConfirmTransaction,
+  };
 }
 
-async function resolveAta(mintStr: string, walletStr: string, rpcUrl: string): Promise<string> {
+async function resolveAta(
+  mintStr: string,
+  walletStr: string,
+  rpcUrl: string,
+): Promise<string> {
   const { Connection, PublicKey } = await import("@solana/web3.js");
   const { getAssociatedTokenAddress } = await import("@solana/spl-token");
 
@@ -64,7 +76,9 @@ async function resolveAta(mintStr: string, walletStr: string, rpcUrl: string): P
 
   const connection = new Connection(connUrl, "confirmed");
   const mintPubkey = new PublicKey(mintStr);
-  let finalTokenProgram = new PublicKey("TokenzQdBNbLqP5VEhfq514e8yxeK31Tz2M7n1zUjRQ");
+  let finalTokenProgram = new PublicKey(
+    "TokenzQdBNbLqP5VEhfq514e8yxeK31Tz2M7n1zUjRQ",
+  );
 
   const mintAccInfo = await connection.getAccountInfo(mintPubkey);
   if (mintAccInfo) {
@@ -75,7 +89,7 @@ async function resolveAta(mintStr: string, walletStr: string, rpcUrl: string): P
     mintPubkey,
     new PublicKey(walletStr),
     true,
-    finalTokenProgram
+    finalTokenProgram,
   );
   return ata.toBase58();
 }
@@ -87,7 +101,12 @@ program
   .option("-n, --name <name>", "Token name", "SSS Token")
   .option("-s, --symbol <symbol>", "Token symbol", "SSS")
   .option("-m, --mint-keypair <path>", "Path to mint keypair JSON file")
-  .option("-t, --transfer-hook <address>", "Transfer hook program ID for sss-2", process.env.TRANSFER_HOOK_PROGRAM_ID || "FtPdSNiQ8ieM4yE1V8FekUk7WDbgZrx9ehb3CyaXzHtG")
+  .option(
+    "-t, --transfer-hook <address>",
+    "Transfer hook program ID for sss-2",
+    process.env.TRANSFER_HOOK_PROGRAM_ID ||
+      "FtPdSNiQ8ieM4yE1V8FekUk7WDbgZrx9ehb3CyaXzHtG",
+  )
   .action(async (options) => {
     console.log(`Initializing stablecoin with preset: ${options.preset}`);
 
@@ -138,7 +157,7 @@ program
         await airdrop({
           commitment: "confirmed",
           recipientAddress: admin.address,
-          lamports: lamports(1_000_000_000n),
+          lamports: lamports(BigInt("1_000_000_000")),
         });
       } catch (e) {
         console.warn(
@@ -191,15 +210,20 @@ program
   .action(async (recipient, amount, options) => {
     console.log(`Minting ${amount} to ${recipient}...`);
     try {
-      const { stablecoin, admin, adminKeypair, rpcUrl, sendAndConfirmTransaction } =
-        await getStablecoinClient(options.mint);
+      const {
+        stablecoin,
+        admin,
+        adminKeypair,
+        rpcUrl,
+        sendAndConfirmTransaction,
+      } = await getStablecoinClient(options.mint);
       const tx = await stablecoin.mintTo(
         admin,
         admin,
         recipient as Address,
         BigInt(amount),
         adminKeypair,
-        rpcUrl
+        rpcUrl,
       );
       const sig = await sendAndConfirmTransaction!(tx as any, {
         commitment: "confirmed",
@@ -220,7 +244,7 @@ program
     try {
       const { stablecoin, admin, rpcUrl, sendAndConfirmTransaction } =
         await getStablecoinClient(options.mint);
-      
+
       const targetAta = await resolveAta(options.mint, address, rpcUrl);
       const tx = await stablecoin.freezeAccount(
         admin,
@@ -249,7 +273,11 @@ program
         await getStablecoinClient(options.mint);
 
       const targetAta = await resolveAta(options.mint, address, rpcUrl);
-      const tx = await stablecoin.thawAccount(admin, admin, targetAta as Address);
+      const tx = await stablecoin.thawAccount(
+        admin,
+        admin,
+        targetAta as Address,
+      );
       const sig = await sendAndConfirmTransaction!(tx as any, {
         commitment: "confirmed",
       });
@@ -328,7 +356,7 @@ program
     try {
       const { stablecoin, admin, rpcUrl, sendAndConfirmTransaction } =
         await getStablecoinClient(options.mint);
-        
+
       const sourceAta = await resolveAta(options.mint, address, rpcUrl);
       const destAta = await resolveAta(options.mint, options.to, rpcUrl);
 
@@ -447,20 +475,22 @@ mintersCmd
     try {
       const { rpcUrl } = await getStablecoinClient(options.mint);
       const { Connection, PublicKey } = await import("@solana/web3.js");
-      
+
       let connUrl = rpcUrl;
       if (rpcUrl === "localnet") connUrl = "http://127.0.0.1:8899";
       else if (rpcUrl === "devnet") connUrl = "https://api.devnet.solana.com";
 
       const connection = new Connection(connUrl, "confirmed");
-      const programId = new PublicKey("3nqtxhZZdpV5W2TPaa1hbWbeM3bhhsMg3Fy9oLdAHKfH");
-      
+      const programId = new PublicKey(
+        "3nqtxhZZdpV5W2TPaa1hbWbeM3bhhsMg3Fy9oLdAHKfH",
+      );
+
       // MinterQuota discriminator: [42, 21, 27, 217, 49, 82, 230, 89] -> 83FeYWPdRW8
       const accounts = await connection.getProgramAccounts(programId, {
         filters: [
           { memcmp: { offset: 0, bytes: "83FeYWPdRW8" } }, // Base58 of discriminator
-          { memcmp: { offset: 8, bytes: options.mint } } // Mint pubkey comes exactly after discriminator
-        ]
+          { memcmp: { offset: 8, bytes: options.mint } }, // Mint pubkey comes exactly after discriminator
+        ],
       });
 
       if (accounts.length === 0) {
@@ -473,7 +503,9 @@ mintersCmd
         const minterPubkey = new PublicKey(account.data.slice(40, 72));
         const limit = account.data.readBigUInt64LE(72);
         const used = account.data.readBigUInt64LE(80);
-        console.log(`- ${minterPubkey.toBase58()} : Quota ${limit.toString()} (Used: ${used.toString()})`);
+        console.log(
+          `- ${minterPubkey.toBase58()} : Quota ${limit.toString()} (Used: ${used.toString()})`,
+        );
       }
     } catch (e: any) {
       console.error(`❌ Failed to list minters: ${e.message}`);
@@ -522,7 +554,7 @@ mintersCmd
         admin,
         address as Address,
         false,
-        0n,
+        BigInt(0),
       );
       const sig = await sendAndConfirmTransaction!(tx as any, {
         commitment: "confirmed",
