@@ -65,3 +65,43 @@ export async function getBlacklistPda(
   });
   return pda;
 }
+
+export async function getAssociatedTokenAddress(
+  mint: Address,
+  owner: Address,
+  tokenProgramId: Address = "TokenzQdBNbLqP5VEhfq514e8yxeK31Tz2M7n1zUjRQ" as Address,
+  associatedTokenProgramId: Address = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL" as Address,
+): Promise<Address> {
+  const [address] = await getProgramDerivedAddress({
+    programAddress: associatedTokenProgramId,
+    seeds: [
+      getAddressEncoder().encode(owner),
+      getAddressEncoder().encode(tokenProgramId),
+      getAddressEncoder().encode(mint),
+    ],
+  });
+  return address;
+}
+
+export function getCreateAssociatedTokenAccountInstruction(
+  payer: Address,
+  associatedToken: Address,
+  owner: Address,
+  mint: Address,
+  tokenProgram: Address = "TokenzQdBNbLqP5VEhfq514e8yxeK31Tz2M7n1zUjRQ" as Address,
+  systemProgram: Address = "11111111111111111111111111111111" as Address,
+  associatedTokenProgram: Address = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL" as Address,
+) {
+  return {
+    programAddress: associatedTokenProgram,
+    accounts: [
+      { address: payer, role: 3 }, // WRITABLE_SIGNER
+      { address: associatedToken, role: 1 }, // WRITABLE
+      { address: owner, role: 0 }, // READONLY
+      { address: mint, role: 0 }, // READONLY
+      { address: systemProgram, role: 0 }, // READONLY
+      { address: tokenProgram, role: 0 }, // READONLY
+    ],
+    data: new Uint8Array([]),
+  } as any;
+}

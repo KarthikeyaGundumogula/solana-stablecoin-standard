@@ -12,12 +12,16 @@ import {
   type FullySignedTransaction,
   getProgramDerivedAddress,
   getAddressEncoder,
+  fetchEncodedAccount,
+  type Instruction,
 } from "gill";
 import {
   getStablecoinConfigPda,
   getRolePda,
   getMinterQuotaPda,
   getBlacklistPda,
+  getAssociatedTokenAddress,
+  getCreateAssociatedTokenAccountInstruction,
 } from "./pda";
 import {
   getMintInstruction,
@@ -295,11 +299,13 @@ export class SolanaStablecoin {
   }
 
   async mintTo(
+    feePayer: TransactionSigner,
     minter: TransactionSigner,
-    recipient: Address,
+    recipientOwner: Address,
     amount: bigint,
-    tokenProgram: Address = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" as Address,
-  ) {
+    payerKeypair?: any,
+    rpcUrl: string = "http://127.0.0.1:8899",
+  ): Promise<FullySignedTransaction> {
     const configPda = await getStablecoinConfigPda(this.mint);
     const rolePda = await getRolePda(
       this.mint,
@@ -311,16 +317,65 @@ export class SolanaStablecoin {
       minter.address as Address,
     );
 
-    return getMintInstruction({
-      minter,
-      config: configPda,
-      roleAccount: rolePda,
-      minterQuota: minterQuotaPda,
-      mint: this.mint,
-      recipientTokenAccount: recipient,
-      tokenProgram,
-      amount,
+    let recipientAta = recipientOwner;
+    let finalTokenProgram = "TokenzQdBNbLqP5VEhfq514e8yxeK31Tz2M7n1zUjRQ" as Address;
+    const instructions: Instruction[] = [];
+
+    if (payerKeypair) {
+      const { Connection, PublicKey } = await import("@solana/web3.js");
+      const { getOrCreateAssociatedTokenAccount } = await import("@solana/spl-token");
+
+      let connUrl = rpcUrl;
+      if (rpcUrl === "localnet") connUrl = "http://127.0.0.1:8899";
+      else if (rpcUrl === "devnet") connUrl = "https://api.devnet.solana.com";
+
+      const connection = new Connection(connUrl, "confirmed");
+      const mintPubkey = new PublicKey(this.mint);
+      
+      const mintAccInfo = await connection.getAccountInfo(mintPubkey);
+      if (mintAccInfo) {
+        finalTokenProgram = mintAccInfo.owner.toBase58() as Address;
+      }
+
+      console.log(`Resolving ATA via web3.js (Token Program: ${finalTokenProgram})...`);
+      const ata = await getOrCreateAssociatedTokenAccount(
+        connection,
+        payerKeypair,
+        mintPubkey,
+        new PublicKey(recipientOwner),
+        false,
+        "confirmed",
+        undefined,
+        new PublicKey(finalTokenProgram)
+      );
+      recipientAta = ata.address.toBase58() as Address;
+    }
+
+    instructions.push(
+      getMintInstruction({
+        minter,
+        config: configPda,
+        roleAccount: rolePda,
+        minterQuota: minterQuotaPda,
+        mint: this.mint,
+        recipientTokenAccount: recipientAta,
+        tokenProgram: finalTokenProgram,
+        amount,
+      }),
+    );
+
+    const { value: latestBlockhash } = await this.client.rpc
+      .getLatestBlockhash()
+      .send();
+
+    const tx = createTransaction({
+      feePayer,
+      version: "auto",
+      instructions,
+      latestBlockhash,
     });
+
+    return signTransactionMessageWithSigners(tx);
   }
 
   async burn(
@@ -709,6 +764,14 @@ export class SolanaStablecoin {
       version: "auto",
       instructions: [inx],
       latestBlockhash,
+    });
+
+    console.log("[SDK] updateRoles tx built", {
+      mint: this.mint,
+      minter,
+      isActive,
+      feePayer: feePayer.address,
+      authority: authority.address,
     });
 
     return signTransactionMessageWithSigners(tx);
