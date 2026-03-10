@@ -49,6 +49,7 @@ router.get(
     const stablecoin = new SolanaStablecoin({ rpc }, mint as Address);
     const hasRole = await stablecoin.hasRole(address as Address, roleType);
 
+    console.log("here");
     if (hasRole && roleType === RoleType.Minter) {
       try {
         const quotaPda = await getMinterQuotaPda(
@@ -81,7 +82,6 @@ router.get(
 router.post(
   "/:mint/grant",
   asyncHandler(async (req, res) => {
-    console.log("im here")
     const { mint } = req.params;
     const { address, role, quotaLimit = "1000000000" } = req.body;
 
@@ -119,20 +119,28 @@ router.post(
             true,
           );
 
-    const signature = await sendAndConfirmTransaction!(tx as any, {
-      commitment: "confirmed",
-    });
-    console.log(
-      `[ROLE] Granted '${role}' to ${address} on ${mint} | ${signature}`,
-    );
-    ok(res, {
-      signature,
-      address,
-      mint,
-      role,
-      quotaLimit: roleType === RoleType.Minter ? quotaLimit : undefined,
-      action: "granted",
-    });
+    try {
+      const signature = await sendAndConfirmTransaction!(tx as any, {
+        commitment: "confirmed",
+      });
+      console.log(
+        `[ROLE] Granted '${role}' to ${address} on ${mint} | ${signature}`,
+      );
+      ok(res, { signature, address, mint, role, action: "granted" });
+    } catch (e: any) {
+      // Print everything we can find
+      console.error("[GRANT ERROR]", e.message);
+      console.error("[LOGS]", e.logs ?? e.transactionLogs ?? "none");
+      if (typeof e.getLogs === "function") {
+        const logs = await e.getLogs(rpc);
+        console.error("[SIMULATION LOGS]", logs);
+      }
+      return res.status(500).json({
+        success: false,
+        error: e.message,
+        logs: e.logs ?? e.transactionLogs ?? [],
+      });
+    }
   }),
 );
 

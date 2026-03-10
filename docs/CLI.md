@@ -83,3 +83,114 @@ Airdropping 1 SOL for fee payment on localnet...
 ✅ Successfully sent tx! Signature: 63xyxxrv...
 ✅ Initialized SSS Token: J9oy4gfKvgPNU1MPDgh3LYGRmSz19WCftRU6ZucG52Go
 ```
+
+### Minting & Supply Management
+
+Mint new tokens to a specific wallet address. Requires the caller to have the `Minter` role.
+
+```bash
+sss-token mint <recipient_wallet_address> <amount> -m <mint_address>
+```
+
+_Example: `sss-token mint 5XyZ... 1000 -m J9oy...`_
+_Note: The CLI will automatically resolve and create the Associated Token Account (ATA) for the recipient if it does not exist._
+
+Burn tokens:
+
+```bash
+sss-token burn <amount> -m <mint_address> --source <source_wallet_address>
+```
+
+_Example: `sss-token burn 500 -m J9oy... --source 5XyZ...`_
+
+### Account Controls
+
+Freeze an account to prevent it from sending or receiving tokens (Requires `Pauser` authority or Master Authority).
+
+```bash
+sss-token freeze <address> -m <mint_address>
+```
+
+Thaw (unfreeze) an account to restore access:
+
+```bash
+sss-token thaw <address> -m <mint_address>
+```
+
+### Role Management & Quotas
+
+Manage minters and their quotas.
+
+List all approved minters:
+
+```bash
+sss-token minters list -m <mint_address>
+```
+
+Add a new minter (grants the Minter role):
+
+```bash
+sss-token minters add <address> -m <mint_address> -q <quota>
+```
+
+Remove a minter (revokes the Minter role):
+
+```bash
+sss-token minters remove <address> -m <mint_address>
+```
+
+### Compliance & Blacklist (SSS-2 Only)
+
+SSS-2 tokens support advanced compliance features via Transfer Hooks and Permanent Delegates.
+
+Add an address to the global blacklist (preventing all transfers involving it):
+
+```bash
+sss-token blacklist add <address> -m <mint_address> --reason "Suspected fraud"
+```
+
+Remove an address from the global blacklist:
+
+```bash
+sss-token blacklist remove <address> -m <mint_address>
+```
+
+Seize tokens from an account to a designated treasury (Requires `Permanent Delegate` authority):
+
+```bash
+sss-token seize <address> -m <mint_address> --amount <amount> --to <treasury_address>
+```
+
+### Operations & Auditing
+
+Pause all token operations globally (emergency stop):
+
+```bash
+sss-token pause -m <mint_address>
+```
+
+Unpause all token operations globally:
+
+```bash
+sss-token unpause -m <mint_address>
+```
+
+Get the current global status of the stablecoin (supply, pause status, etc.):
+
+```bash
+sss-token status -m <mint_address>
+# OR
+sss-token supply -m <mint_address>
+```
+
+List all token holders (optionally filtering by minimum balance):
+
+```bash
+sss-token holders -m <mint_address> --min-balance 1000
+```
+
+Fetch compliance audit logs (history of freezes, blacklists, seizures):
+
+```bash
+sss-token audit-log -m <mint_address> --action blacklist
+```

@@ -24,5 +24,24 @@ export function errorMiddleware(
   _next: NextFunction,
 ) {
   console.error(`[ERROR] ${error.message}`);
-  res.status(500).json({ success: false, error: error.message });
+
+  // Catch Solana SendTransactionError and print logs
+  const logs = (error as any)?.logs ?? (error as any)?.transactionLogs;
+  if (logs) {
+    console.error("[LOGS]", logs);
+  }
+
+  // Also try getLogs() if available
+  if (typeof (error as any).getLogs === "function") {
+    (error as any)
+      .getLogs()
+      .then((l: string[]) => {
+        console.error("[SIMULATION LOGS]", l);
+      })
+      .catch(() => {});
+  }
+
+  res
+    .status(500)
+    .json({ success: false, error: error.message, logs: logs ?? [] });
 }

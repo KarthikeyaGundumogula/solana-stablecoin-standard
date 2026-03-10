@@ -1,114 +1,168 @@
 # SSS API
 
-Express backend for Solana Stablecoin Standard role management.
+Express backend for Solana Stablecoin Standard — handles role management, compliance, and operations using the authority keypair server-side.
 
 ## Setup
 
 ```bash
-cp .env.example .env
-# Edit .env — set AUTHORITY_KEYPAIR
-
+cd sss-api
 npm install
+cp .env.example .env   # fill in AUTHORITY_KEYPAIR
 npm run dev
 ```
 
 ## Getting your authority keypair
 
 ```bash
-# Generate a new keypair
-solana-keygen new --outfile authority.json
+# Generate keypair
+solana-keygen new --outfile authority.json --no-bip39-passphrase
 
-# Airdrop SOL (localnet)
+# Print address
+solana-keygen pubkey authority.json
+
+# Airdrop SOL on localnet
 solana airdrop 10 $(solana-keygen pubkey authority.json) --url localhost
 
-# Copy the bytes array into AUTHORITY_KEYPAIR in .env
+# Copy the byte array into .env as AUTHORITY_KEYPAIR
 cat authority.json
 ```
 
-## Endpoints
+## Health check
 
-### Health
-```
-GET /health
+```bash
+curl http://localhost:3001/health
 ```
 
 ---
 
-### Minters
+## Routes
 
-**Check minter status**
+### `/mint` — Mint config & authority
+
+**Get on-chain config**
 ```bash
-curl "http://localhost:3001/minters/<MINT>/check?address=<WALLET>"
+curl http://localhost:3001/mint/<MINT>/config
 ```
 
-**Grant minter role**
+**Transfer authority to a new wallet**
 ```bash
-curl -X POST http://localhost:3001/minters/<MINT>/grant \
+curl -X POST http://localhost:3001/mint/<MINT>/transfer-authority \
   -H "Content-Type: application/json" \
-  -d '{ "address": "<WALLET>", "quotaLimit": "1000000000" }'
-```
-
-**Revoke minter role**
-```bash
-curl -X POST http://localhost:3001/minters/<MINT>/revoke \
-  -H "Content-Type: application/json" \
-  -d '{ "address": "<WALLET>" }'
+  -d '{ "newAuthority": "<NEW_WALLET>" }'
 ```
 
 ---
 
-### Blacklist (SSS-2)
+### `/roles` — Role management
 
-**Check if blacklisted**
+Valid roles: `minter` `blacklister` `pauser` `seizer`
+
+**Check if address has a role**
 ```bash
-curl "http://localhost:3001/blacklist/<MINT>/check?address=<WALLET>"
+curl "http://localhost:3001/roles/<MINT>/check?address=<WALLET>&role=minter"
 ```
 
-**Add to blacklist**
+**Grant a role**
 ```bash
-curl -X POST http://localhost:3001/blacklist/<MINT>/add \
+curl -X POST http://localhost:3001/roles/<MINT>/grant \
+  -H "Content-Type: application/json" \
+  -d '{ "address": "<WALLET>", "role": "minter", "quotaLimit": "1000000000" }'
+```
+> `quotaLimit` is only used when `role` is `minter`. Omit for other roles.
+
+**Revoke a role**
+```bash
+curl -X POST http://localhost:3001/roles/<MINT>/revoke \
+  -H "Content-Type: application/json" \
+  -d '{ "address": "<WALLET>", "role": "minter" }'
+```
+
+---
+
+### `/compliance` — Blacklist & seize (SSS-2 only)
+
+**Check if address is blacklisted**
+```bash
+curl "http://localhost:3001/compliance/<MINT>/check?address=<WALLET>"
+```
+
+**Blacklist an address**
+```bash
+curl -X POST http://localhost:3001/compliance/<MINT>/blacklist \
   -H "Content-Type: application/json" \
   -d '{ "address": "<WALLET>" }'
 ```
 
 **Remove from blacklist**
 ```bash
-curl -X POST http://localhost:3001/blacklist/<MINT>/remove \
+curl -X POST http://localhost:3001/compliance/<MINT>/unblacklist \
   -H "Content-Type: application/json" \
   -d '{ "address": "<WALLET>" }'
 ```
 
+**Seize tokens**
+```bash
+curl -X POST http://localhost:3001/compliance/<MINT>/seize \
+  -H "Content-Type: application/json" \
+  -d '{ "source": "<SOURCE_ATA>", "destination": "<DEST_ATA>", "amount": "1000000" }'
+```
+
 ---
 
-### Roles (generic)
+### `/operations` — Pause, freeze, thaw
 
-Valid roles: `minter`, `blacklister`, `pauser`, `seizer`
-
-**Check role**
+**Pause the mint** (blocks all mints, burns, and SSS-2 transfers)
 ```bash
-curl "http://localhost:3001/roles/<MINT>/check?address=<WALLET>&role=pauser"
+curl -X POST http://localhost:3001/operations/<MINT>/pause
 ```
 
-**Grant role**
+**Unpause the mint**
 ```bash
-curl -X POST http://localhost:3001/roles/<MINT>/grant \
-  -H "Content-Type: application/json" \
-  -d '{ "address": "<WALLET>", "role": "pauser" }'
+curl -X POST http://localhost:3001/operations/<MINT>/unpause
 ```
 
-**Revoke role**
+**Freeze a token account**
 ```bash
-curl -X POST http://localhost:3001/roles/<MINT>/revoke \
+curl -X POST http://localhost:3001/operations/<MINT>/freeze \
   -H "Content-Type: application/json" \
-  -d '{ "address": "<WALLET>", "role": "pauser" }'
+  -d '{ "tokenAccount": "<ATA>" }'
+```
+
+**Thaw a token account**
+```bash
+curl -X POST http://localhost:3001/operations/<MINT>/thaw \
+  -H "Content-Type: application/json" \
+  -d '{ "tokenAccount": "<ATA>" }'
 ```
 
 ---
 
 ## Response format
 
-All responses follow:
+Every endpoint returns:
+
 ```json
-{ "success": true, ...data }
+{ "success": true, "signature": "...", ... }
 { "success": false, "error": "message" }
+```
+
+## Typical workflow
+
+```bash
+# 1. Deploy a mint via the web app (sss-demo), copy the mint address
+
+# 2. Grant minter role to a wallet
+curl -X POST http://localhost:3001/roles/<MINT>/grant \
+  -H "Content-Type: application/json" \
+  -d '{ "address": "<MINTER_WALLET>", "role": "minter", "quotaLimit": "1000000000" }'
+
+# 3. Grant pauser role to a security wallet
+curl -X POST http://localhost:3001/roles/<MINT>/grant \
+  -H "Content-Type: application/json" \
+  -d '{ "address": "<PAUSER_WALLET>", "role": "pauser" }'
+
+# 4. (SSS-2) Grant blacklister role
+curl -X POST http://localhost:3001/roles/<MINT>/grant \
+  -H "Content-Type: application/json" \
+  -d '{ "address": "<BLACKLISTER_WALLET>", "role": "blacklister" }'
 ```
