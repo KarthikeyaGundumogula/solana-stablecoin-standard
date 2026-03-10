@@ -105,7 +105,7 @@ program
           // Mock transfer hook for sss-2 if none provided, just to let the command run for POC
           transferHookProgramId:
             preset === Presets.SSS_2
-              ? ("11111111111111111111111111111111" as Address)
+              ? ("FtPdSNiQ8ieM4yE1V8FekUk7WDbgZrx9ehb3CyaXzHtG" as Address)
               : undefined,
         },
       );
