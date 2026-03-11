@@ -16,7 +16,6 @@ The `stc_program` acts as the primary mint authority, freeze authority, and meta
 Modules are composable and optionally enabled on the Token-2022 Mint.
 
 - **Compliance Module**: Includes a `transfer_hook_program`, Blacklist PDAs managed by `stc_program`, and a Permanent Delegate authority allowing token seizures.
-- **Privacy Module (WIP)**: Confidential transfers and scoped allowlists.
 
 ## Data Flows
 

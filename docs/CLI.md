@@ -90,7 +90,6 @@ Mint new tokens to a specific wallet address. Requires the caller to have the `M
 
 ```bash
 sss-token mint <recipient_wallet_address> <amount> -m <mint_address>
-sss-token mint HGbe7AjNtNNuU3QmninLVZhcY1bJGEyuXVLrbw1EPyCW 100 -m 7Hs3gbPjNX67PCVNDbBbBLsZbinx3fW2DQ4jJCEzRhhQ
 ```
 
 _Example: `sss-token mint 5XyZ... 1000 -m J9oy...`_
@@ -133,7 +132,9 @@ Add a new minter (grants the Minter role):
 ```bash
 sss-token minters add <address> -m <mint_address> -q <quota>
 ```
+
 example with local key
+
 ```bash
 sss-token minters add HGbe7AjNtNNuU3QmninLVZhcY1bJGEyuXVLrbw1EPyCW -m AVMs4cWazivk7MeWaVSEHjGa7gYMiS7tGdkwshLhr98e -q 100000
 ```
