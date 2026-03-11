@@ -1,4 +1,6 @@
 import { createSolanaClient, createKeyPairSignerFromBytes, } from "gill";
+import * as fs from "fs";
+import * as os from "os";
 const NETWORK_MAP = {
     localnet: "http://localhost:8899",
     devnet: "https://api.devnet.solana.com",
@@ -28,9 +30,14 @@ export function getSolanaClient() {
 }
 export async function getAuthoritySigner() {
     if (!_authority) {
-        const raw = process.env.AUTHORITY_KEYPAIR;
-        if (!raw)
-            throw new Error("AUTHORITY_KEYPAIR not set in environment");
+        let keypairPath = process.env.AUTHORITY_KEYPAIR || `${os.homedir()}/.config/solana/id.json`;
+        if (keypairPath.startsWith("~")) {
+            keypairPath = keypairPath.replace("~", os.homedir());
+        }
+        if (!fs.existsSync(keypairPath)) {
+            throw new Error(`AUTHORITY_KEYPAIR file not found at ${keypairPath}`);
+        }
+        const raw = fs.readFileSync(keypairPath, "utf-8");
         const bytes = new Uint8Array(JSON.parse(raw));
         _authority = await createKeyPairSignerFromBytes(bytes);
     }
@@ -38,4 +45,8 @@ export async function getAuthoritySigner() {
 }
 export function getNetwork() {
     return process.env.SOLANA_NETWORK ?? "localnet";
+}
+export function getTransferHookId() {
+    return (process.env.TRANSFER_HOOK_PROGRAM_ID ||
+        "FtPdSNiQ8ieM4yE1V8FekUk7WDbgZrx9ehb3CyaXzHtG");
 }

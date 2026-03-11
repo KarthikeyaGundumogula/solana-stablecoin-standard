@@ -5,12 +5,10 @@ import {
   fetchBlacklistEntry,
 } from "@stbr/sss-token";
 import type { Address } from "gill";
-import { getSolanaClient, getAuthoritySigner } from "../solana.js";
+import { getSolanaClient, getAuthoritySigner, getTransferHookId } from "../solana.js";
 import { ok, err, asyncHandler } from "../helpers.js";
 
 const router = Router();
-
-const DEFAULT_HOOK = "3nqtxhZZdpV5W2TPaa1hbWbeM3bhhsMg3Fy9oLdAHKfH";
 
 /**
  * GET /compliance/:mint/check
@@ -20,7 +18,7 @@ router.get(
   "/:mint/check",
   asyncHandler(async (req, res) => {
     const { mint } = req.params;
-    const { address, hookProgram = DEFAULT_HOOK } = req.query;
+    const { address, hookProgram = getTransferHookId() } = req.query;
 
     if (!address || typeof address !== "string")
       return err(res, "'address' query param required");
@@ -48,7 +46,7 @@ router.post(
   "/:mint/blacklist",
   asyncHandler(async (req, res) => {
     const { mint } = req.params;
-    const { address, hookProgram = DEFAULT_HOOK } = req.body;
+    const { address, hookProgram = getTransferHookId() } = req.body;
 
     if (!address) return err(res, "'address' is required");
 
@@ -82,7 +80,7 @@ router.post(
   "/:mint/unblacklist",
   asyncHandler(async (req, res) => {
     const { mint } = req.params;
-    const { address, hookProgram = DEFAULT_HOOK } = req.body;
+    const { address, hookProgram = getTransferHookId() } = req.body;
 
     if (!address) return err(res, "'address' is required");
 
@@ -120,7 +118,7 @@ router.post(
       source,
       destination,
       amount,
-      hookProgram = DEFAULT_HOOK,
+      hookProgram = getTransferHookId(),
     } = req.body;
 
     if (!source) return err(res, "'source' is required");

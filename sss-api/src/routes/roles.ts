@@ -6,7 +6,7 @@ import {
   fetchMinterQuota,
 } from "@stbr/sss-token";
 import type { Address } from "gill";
-import { getSolanaClient, getAuthoritySigner } from "../solana.js";
+import { getSolanaClient, getAuthoritySigner, getTransferHookId } from "../solana.js";
 import { ok, err, asyncHandler } from "../helpers.js";
 
 const router = Router();
@@ -46,10 +46,9 @@ router.get(
       );
 
     const { rpc } = getSolanaClient();
-    const stablecoin = new SolanaStablecoin({ rpc }, mint as Address);
+    const stablecoin = new SolanaStablecoin({ rpc }, mint as Address, getTransferHookId());
     const hasRole = await stablecoin.hasRole(address as Address, roleType);
 
-    console.log("here");
     if (hasRole && roleType === RoleType.Minter) {
       try {
         const quotaPda = await getMinterQuotaPda(
@@ -100,6 +99,7 @@ router.post(
     const stablecoin = new SolanaStablecoin(
       { rpc, sendAndConfirmTransaction },
       mint as Address,
+      getTransferHookId(),
     );
 
     const tx =
@@ -135,11 +135,12 @@ router.post(
         const logs = await e.getLogs(rpc);
         console.error("[SIMULATION LOGS]", logs);
       }
-      return res.status(500).json({
+      res.status(500).json({
         success: false,
         error: e.message,
         logs: e.logs ?? e.transactionLogs ?? [],
       });
+      return;
     }
   }),
 );

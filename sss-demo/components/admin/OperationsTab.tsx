@@ -1,8 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { api } from "@/lib/api";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
+import {
+  VersionedTransaction,
+  TransactionMessage,
+  PublicKey,
+} from "@solana/web3.js";
+import {
+  getPauseInstruction,
+  getUnpauseInstruction,
+  getFreezeAccountInstruction,
+  getThawAccountInstruction,
+  getStablecoinConfigPda,
+} from "@stbr/sss-token";
+import type { Address } from "gill";
 import { Panel, Field, Btn, TxResult, Spinner } from "@/components/ui";
+import { useNetwork } from "@/components/WalletContext";
 
 export function OperationsTab({
   mint,
@@ -11,6 +25,10 @@ export function OperationsTab({
   mint: string;
   isPaused: boolean;
 }) {
+  const { publicKey, signTransaction } = useWallet();
+  const { connection } = useConnection();
+  const { network } = useNetwork();
+
   const [paused, setPaused] = useState(isPaused);
   const [pauseLoading, setPauseLoading] = useState(false);
   const [pauseSig, setPauseSig] = useState("");
@@ -20,18 +38,66 @@ export function OperationsTab({
   const [freezeLoading, setFreezeLoading] = useState<"freeze" | "thaw" | null>(
     null,
   );
-  const [freezeResult, setFreezeResult] = useState<any>(null);
+  const [freezeSig, setFreezeSig] = useState("");
   const [freezeError, setFreezeError] = useState("");
 
+  const sendInx = async (inx: any): Promise<string> => {
+    if (!publicKey || !signTransaction) throw new Error("Wallet not connected");
+
+    // Convert Gill instruction to web3.js format (same as InitMint.tsx)
+    const web3Inx = {
+      programId: new PublicKey(inx.programAddress),
+      keys: inx.accounts.map((a: any) => ({
+        pubkey: new PublicKey(a.address),
+        isSigner: a.role === 3 || a.role === 2,
+        isWritable: a.role === 1 || a.role === 3,
+      })),
+      data: Buffer.from(inx.data),
+    };
+
+    const { blockhash, lastValidBlockHeight } =
+      await connection.getLatestBlockhash("confirmed");
+
+    const message = new TransactionMessage({
+      payerKey: publicKey,
+      recentBlockhash: blockhash,
+      instructions: [web3Inx],
+    }).compileToLegacyMessage();
+
+    const vTx = new VersionedTransaction(message);
+    const signed = await signTransaction(vTx);
+
+    const sig = await connection.sendRawTransaction(signed.serialize(), {
+      preflightCommitment: "confirmed",
+    });
+    await connection.confirmTransaction(
+      { signature: sig, blockhash, lastValidBlockHeight },
+      "confirmed",
+    );
+    return sig;
+  };
+
   const togglePause = async () => {
+    if (!publicKey) return;
     setPauseLoading(true);
     setPauseSig("");
     setPauseError("");
     try {
-      const data = paused
-        ? await api.operations.unpause(mint)
-        : await api.operations.pause(mint);
-      setPauseSig(data.signature);
+      const authorityAddress = publicKey.toBase58() as Address;
+      const configPda = await getStablecoinConfigPda(mint as Address);
+
+      const inx = paused
+        ? getUnpauseInstruction({
+            authority: authorityAddress,
+            config: configPda,
+          })
+        : getPauseInstruction({
+            authority: authorityAddress,
+            config: configPda,
+          });
+
+      const sig = await sendInx(inx);
+      setPauseSig(sig);
       setPaused(!paused);
     } catch (e: any) {
       setPauseError(e.message);
@@ -41,12 +107,24 @@ export function OperationsTab({
   };
 
   const freeze = async () => {
-    if (!tokenAccount) return;
+    if (!tokenAccount || !publicKey) return;
     setFreezeLoading("freeze");
-    setFreezeResult(null);
+    setFreezeSig("");
     setFreezeError("");
     try {
-      setFreezeResult(await api.operations.freeze(mint, tokenAccount));
+      const authorityAddress = publicKey.toBase58() as Address;
+      const configPda = await getStablecoinConfigPda(mint as Address);
+
+      const inx = getFreezeAccountInstruction({
+        authority: authorityAddress,
+        config: configPda,
+        tokenAccount: tokenAccount as Address,
+        mint: mint as Address,
+        tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb" as Address,
+      });
+
+      const sig = await sendInx(inx);
+      setFreezeSig(sig);
     } catch (e: any) {
       setFreezeError(e.message);
     } finally {
@@ -55,12 +133,24 @@ export function OperationsTab({
   };
 
   const thaw = async () => {
-    if (!tokenAccount) return;
+    if (!tokenAccount || !publicKey) return;
     setFreezeLoading("thaw");
-    setFreezeResult(null);
+    setFreezeSig("");
     setFreezeError("");
     try {
-      setFreezeResult(await api.operations.thaw(mint, tokenAccount));
+      const authorityAddress = publicKey.toBase58() as Address;
+      const configPda = await getStablecoinConfigPda(mint as Address);
+
+      const inx = getThawAccountInstruction({
+        authority: authorityAddress,
+        config: configPda,
+        tokenAccount: tokenAccount as Address,
+        mint: mint as Address,
+        tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb" as Address,
+      });
+
+      const sig = await sendInx(inx);
+      setFreezeSig(sig);
     } catch (e: any) {
       setFreezeError(e.message);
     } finally {
@@ -120,7 +210,7 @@ export function OperationsTab({
             "$ pause mint"
           )}
         </Btn>
-        <TxResult sig={pauseSig} error={pauseError} />
+        <TxResult sig={pauseSig} error={pauseError} network={network} />
       </Panel>
 
       {/* Freeze / Thaw */}
@@ -130,10 +220,10 @@ export function OperationsTab({
             value={tokenAccount}
             onChange={(e) => {
               setTokenAccount(e.target.value);
-              setFreezeResult(null);
+              setFreezeSig("");
               setFreezeError("");
             }}
-            placeholder="associated token account"
+            placeholder="associated token account (ATA)"
           />
         </Field>
         <div style={{ display: "flex", gap: 8 }}>
@@ -166,7 +256,7 @@ export function OperationsTab({
             )}
           </Btn>
         </div>
-        <TxResult sig={freezeResult?.signature} error={freezeError} />
+        <TxResult sig={freezeSig} error={freezeError} network={network} />
       </Panel>
     </div>
   );

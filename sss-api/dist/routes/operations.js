@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { SolanaStablecoin } from "@stbr/sss-token";
-import { getSolanaClient, getAuthoritySigner } from "../solana.js";
+import { getSolanaClient, getAuthoritySigner, getTransferHookId } from "../solana.js";
 import { ok, err, asyncHandler } from "../helpers.js";
 const router = Router();
 /**
@@ -10,7 +10,7 @@ router.post("/:mint/pause", asyncHandler(async (req, res) => {
     const { mint } = req.params;
     const { rpc, sendAndConfirmTransaction } = getSolanaClient();
     const authority = await getAuthoritySigner();
-    const stablecoin = new SolanaStablecoin({ rpc, sendAndConfirmTransaction }, mint);
+    const stablecoin = new SolanaStablecoin({ rpc, sendAndConfirmTransaction }, mint, getTransferHookId());
     const tx = await stablecoin.pause(authority, authority);
     const signature = await sendAndConfirmTransaction(tx, {
         commitment: "confirmed",
@@ -25,7 +25,7 @@ router.post("/:mint/unpause", asyncHandler(async (req, res) => {
     const { mint } = req.params;
     const { rpc, sendAndConfirmTransaction } = getSolanaClient();
     const authority = await getAuthoritySigner();
-    const stablecoin = new SolanaStablecoin({ rpc, sendAndConfirmTransaction }, mint);
+    const stablecoin = new SolanaStablecoin({ rpc, sendAndConfirmTransaction }, mint, getTransferHookId());
     const tx = await stablecoin.unpause(authority, authority);
     const signature = await sendAndConfirmTransaction(tx, {
         commitment: "confirmed",
@@ -44,7 +44,7 @@ router.post("/:mint/freeze", asyncHandler(async (req, res) => {
         return err(res, "'tokenAccount' is required");
     const { rpc, sendAndConfirmTransaction } = getSolanaClient();
     const authority = await getAuthoritySigner();
-    const stablecoin = new SolanaStablecoin({ rpc, sendAndConfirmTransaction }, mint);
+    const stablecoin = new SolanaStablecoin({ rpc, sendAndConfirmTransaction }, mint, getTransferHookId());
     const tx = await stablecoin.freezeAccount(authority, authority, tokenAccount);
     const signature = await sendAndConfirmTransaction(tx, {
         commitment: "confirmed",
@@ -63,7 +63,7 @@ router.post("/:mint/thaw", asyncHandler(async (req, res) => {
         return err(res, "'tokenAccount' is required");
     const { rpc, sendAndConfirmTransaction } = getSolanaClient();
     const authority = await getAuthoritySigner();
-    const stablecoin = new SolanaStablecoin({ rpc, sendAndConfirmTransaction }, mint);
+    const stablecoin = new SolanaStablecoin({ rpc, sendAndConfirmTransaction }, mint, getTransferHookId());
     const tx = await stablecoin.thawAccount(authority, authority, tokenAccount);
     const signature = await sendAndConfirmTransaction(tx, {
         commitment: "confirmed",

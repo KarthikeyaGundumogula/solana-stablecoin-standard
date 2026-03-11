@@ -1,11 +1,14 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useState, useEffect } from "react";
+
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { useRouter } from "next/navigation";
-import { api } from "../../../lib/api";
 import { useNetwork } from "@/components/WalletContext";
+import { SolanaStablecoin } from "@stbr/sss-token";
+import { createSolanaClient } from "gill";
+import type { Address } from "gill";
 import { RolesTab } from "@/components/admin/RolesTab";
 import { ComplianceTab } from "@/components/admin/ComplianceTab";
 import { OperationsTab } from "@/components/admin/OperationsTab";
@@ -24,10 +27,11 @@ const TABS: { id: Tab; label: string; desc: string }[] = [
 export default function AdminConsolePage({
   params,
 }: {
-  params: Promise<{ mint: string }>;
+  params: { mint: string };
 }) {
-  const { mint } = use(params);
+  const { mint } = params;
   const { publicKey } = useWallet();
+  const { connection } = useConnection();
   const { network } = useNetwork();
   const router = useRouter();
 
@@ -48,7 +52,14 @@ export default function AdminConsolePage({
       setLoadingConfig(true);
       setConfigError("");
       try {
-        const { config: c } = await api.mint.config(mint);
+        const { rpc } = createSolanaClient({ urlOrMoniker: connection.rpcEndpoint as any });
+        const stablecoin = new SolanaStablecoin({ rpc: rpc as any }, mint as Address);
+        const rawConfig = await stablecoin.getConfig();
+        const c = {
+          authority: (rawConfig as any).masterAuthority ?? (rawConfig as any).master_authority ?? (rawConfig as any).authority,
+          isPaused: rawConfig.isPaused,
+          preset: (rawConfig as any).preset ?? null,
+        };
         setConfig(c);
         if (c.authority === publicKey.toBase58()) {
           setAuthorized(true);

@@ -23,6 +23,7 @@ export function errorMiddleware(
   res: Response,
   _next: NextFunction,
 ) {
+  console.log(error);
   console.error(`[ERROR] ${error.message}`);
 
   // Catch Solana SendTransactionError and print logs

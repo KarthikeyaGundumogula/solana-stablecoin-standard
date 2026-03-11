@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { SolanaStablecoin, RoleType, getMinterQuotaPda, fetchMinterQuota, } from "@stbr/sss-token";
-import { getSolanaClient, getAuthoritySigner } from "../solana.js";
+import { getSolanaClient, getAuthoritySigner, getTransferHookId } from "../solana.js";
 import { ok, err, asyncHandler } from "../helpers.js";
 const router = Router();
 export const ROLE_NAMES = {
@@ -28,7 +28,7 @@ router.get("/:mint/check", asyncHandler(async (req, res) => {
     if (roleType === null)
         return err(res, `Unknown role. Valid: ${Object.keys(ROLE_NAMES).join(", ")}`);
     const { rpc } = getSolanaClient();
-    const stablecoin = new SolanaStablecoin({ rpc }, mint);
+    const stablecoin = new SolanaStablecoin({ rpc }, mint, getTransferHookId());
     const hasRole = await stablecoin.hasRole(address, roleType);
     if (hasRole && roleType === RoleType.Minter) {
         try {
@@ -66,22 +66,32 @@ router.post("/:mint/grant", asyncHandler(async (req, res) => {
         return err(res, `Unknown role. Valid: ${Object.keys(ROLE_NAMES).join(", ")}`);
     const { rpc, sendAndConfirmTransaction } = getSolanaClient();
     const authority = await getAuthoritySigner();
-    const stablecoin = new SolanaStablecoin({ rpc, sendAndConfirmTransaction }, mint);
+    const stablecoin = new SolanaStablecoin({ rpc, sendAndConfirmTransaction }, mint, getTransferHookId());
     const tx = roleType === RoleType.Minter
         ? await stablecoin.updateMinter(authority, authority, address, true, BigInt(quotaLimit))
         : await stablecoin.updateRoles(authority, authority, address, roleType, true);
-    const signature = await sendAndConfirmTransaction(tx, {
-        commitment: "confirmed",
-    });
-    console.log(`[ROLE] Granted '${role}' to ${address} on ${mint} | ${signature}`);
-    ok(res, {
-        signature,
-        address,
-        mint,
-        role,
-        quotaLimit: roleType === RoleType.Minter ? quotaLimit : undefined,
-        action: "granted",
-    });
+    try {
+        const signature = await sendAndConfirmTransaction(tx, {
+            commitment: "confirmed",
+        });
+        console.log(`[ROLE] Granted '${role}' to ${address} on ${mint} | ${signature}`);
+        ok(res, { signature, address, mint, role, action: "granted" });
+    }
+    catch (e) {
+        // Print everything we can find
+        console.error("[GRANT ERROR]", e.message);
+        console.error("[LOGS]", e.logs ?? e.transactionLogs ?? "none");
+        if (typeof e.getLogs === "function") {
+            const logs = await e.getLogs(rpc);
+            console.error("[SIMULATION LOGS]", logs);
+        }
+        res.status(500).json({
+            success: false,
+            error: e.message,
+            logs: e.logs ?? e.transactionLogs ?? [],
+        });
+        return;
+    }
 }));
 /**
  * POST /roles/:mint/revoke

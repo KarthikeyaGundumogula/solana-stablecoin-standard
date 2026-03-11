@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { SolanaStablecoin } from "@stbr/sss-token";
 import type { Address } from "gill";
-import { getSolanaClient, getAuthoritySigner } from "../solana.js";
+import { getSolanaClient, getAuthoritySigner, getTransferHookId } from "../solana.js";
 import { ok, err, asyncHandler } from "../helpers.js";
 
 const router = Router();
@@ -18,6 +18,7 @@ router.post(
     const stablecoin = new SolanaStablecoin(
       { rpc, sendAndConfirmTransaction },
       mint as Address,
+      getTransferHookId(),
     );
 
     const tx = await stablecoin.pause(authority, authority);
@@ -42,6 +43,7 @@ router.post(
     const stablecoin = new SolanaStablecoin(
       { rpc, sendAndConfirmTransaction },
       mint as Address,
+      getTransferHookId(),
     );
 
     const tx = await stablecoin.unpause(authority, authority);
@@ -71,6 +73,7 @@ router.post(
     const stablecoin = new SolanaStablecoin(
       { rpc, sendAndConfirmTransaction },
       mint as Address,
+      getTransferHookId(),
     );
 
     const tx = await stablecoin.freezeAccount(
@@ -104,6 +107,7 @@ router.post(
     const stablecoin = new SolanaStablecoin(
       { rpc, sendAndConfirmTransaction },
       mint as Address,
+      getTransferHookId(),
     );
 
     const tx = await stablecoin.thawAccount(

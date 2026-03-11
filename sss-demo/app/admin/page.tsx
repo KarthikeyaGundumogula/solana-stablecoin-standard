@@ -1,13 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { useRouter } from "next/navigation";
-import { api } from "../../lib/api";
+import { SolanaStablecoin } from "@stbr/sss-token";
+import { createSolanaClient } from "gill";
+import type { Address } from "gill";
 
 export default function AdminPage() {
   const { publicKey } = useWallet();
+  const { connection } = useConnection();
   const router = useRouter();
 
   const [mounted, setMounted] = useState(false);
@@ -23,11 +26,12 @@ export default function AdminPage() {
     setError("");
 
     try {
-      const { config } = await api.mint.config(mint.trim());
-      if (config.authority !== publicKey.toBase58()) {
-        setError(
-          `Not authorized. Mint authority is ${config.authority.slice(0, 8)}…`,
-        );
+      const { rpc } = createSolanaClient({ urlOrMoniker: connection.rpcEndpoint as any });
+      const stablecoin = new SolanaStablecoin({ rpc: rpc as any }, mint.trim() as Address);
+      const rawConfig = await stablecoin.getConfig();
+      const authority = (rawConfig as any).masterAuthority ?? (rawConfig as any).master_authority ?? (rawConfig as any).authority;
+      if (authority !== publicKey.toBase58()) {
+        setError(`Not authorized. Mint authority is ${authority.slice(0, 8)}…`);
         return;
       }
       router.push(`/admin/${mint.trim()}`);

@@ -1,11 +1,31 @@
 "use client";
 
 import { useState } from "react";
-import { api } from "@/lib/api";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
+import {
+  VersionedTransaction,
+  TransactionMessage,
+  PublicKey,
+} from "@solana/web3.js";
+import {
+  getAddToBlacklistInstruction,
+  getSeizeInstruction,
+  getBlacklistPda,
+  getStablecoinConfigPda,
+} from "@stbr/sss-token";
+import type { Address } from "gill";
 import { Panel, Field, Btn, TxResult, Spinner, Tag } from "@/components/ui";
+import { useNetwork } from "@/components/WalletContext";
+
+const TRANSFER_HOOK_PROGRAM =
+  (process.env.NEXT_PUBLIC_TRANSFER_HOOK_PROGRAM_ID as Address) ??
+  ("FtPdSNiQ8ieM4yE1V8FekUk7WDbgZrx9ehb3CyaXzHtG" as Address);
 
 export function ComplianceTab({ mint }: { mint: string }) {
-  // Blacklist state
+  const { publicKey, signTransaction } = useWallet();
+  const { connection } = useConnection();
+  const { network } = useNetwork();
+
   const [blAddress, setBlAddress] = useState("");
   const [blLoading, setBlLoading] = useState<"add" | "remove" | "check" | null>(
     null,
@@ -13,13 +33,48 @@ export function ComplianceTab({ mint }: { mint: string }) {
   const [blResult, setBlResult] = useState<any>(null);
   const [blError, setBlError] = useState("");
 
-  // Seize state
   const [seizeSource, setSeizeSource] = useState("");
   const [seizeDest, setSeizeDest] = useState("");
   const [seizeAmount, setSeizeAmount] = useState("");
   const [seizeLoading, setSeizeLoading] = useState(false);
-  const [seizeResult, setSeizeResult] = useState<any>(null);
+  const [seizeSig, setSeizeSig] = useState("");
   const [seizeError, setSeizeError] = useState("");
+
+  const sendInx = async (inx: any): Promise<string> => {
+    if (!publicKey || !signTransaction) throw new Error("Wallet not connected");
+
+    // Convert Gill instruction to web3.js format (same as InitMint.tsx)
+    const web3Inx = {
+      programId: new PublicKey(inx.programAddress),
+      keys: inx.accounts.map((a: any) => ({
+        pubkey: new PublicKey(a.address),
+        isSigner: a.role === 3 || a.role === 2,
+        isWritable: a.role === 1 || a.role === 3,
+      })),
+      data: Buffer.from(inx.data),
+    };
+
+    const { blockhash, lastValidBlockHeight } =
+      await connection.getLatestBlockhash("confirmed");
+
+    const message = new TransactionMessage({
+      payerKey: publicKey,
+      recentBlockhash: blockhash,
+      instructions: [web3Inx],
+    }).compileToLegacyMessage();
+
+    const vTx = new VersionedTransaction(message);
+    const signed = await signTransaction(vTx);
+
+    const sig = await connection.sendRawTransaction(signed.serialize(), {
+      preflightCommitment: "confirmed",
+    });
+    await connection.confirmTransaction(
+      { signature: sig, blockhash, lastValidBlockHeight },
+      "confirmed",
+    );
+    return sig;
+  };
 
   const blCheck = async () => {
     if (!blAddress) return;
@@ -27,7 +82,13 @@ export function ComplianceTab({ mint }: { mint: string }) {
     setBlResult(null);
     setBlError("");
     try {
-      setBlResult(await api.compliance.check(mint, blAddress));
+      const blacklistPda = await getBlacklistPda(
+        mint as Address,
+        blAddress as Address,
+        TRANSFER_HOOK_PROGRAM,
+      );
+      const info = await connection.getAccountInfo(new PublicKey(blacklistPda));
+      setBlResult({ isBlacklisted: info !== null && info.data.length > 0 });
     } catch (e: any) {
       setBlError(e.message);
     } finally {
@@ -36,12 +97,29 @@ export function ComplianceTab({ mint }: { mint: string }) {
   };
 
   const blAdd = async () => {
-    if (!blAddress) return;
+    if (!blAddress || !publicKey) return;
     setBlLoading("add");
     setBlResult(null);
     setBlError("");
     try {
-      setBlResult(await api.compliance.blacklist(mint, blAddress));
+      const authorityAddress = publicKey.toBase58() as Address;
+      const configPda = await getStablecoinConfigPda(mint as Address);
+      const blacklistPda = await getBlacklistPda(
+        mint as Address,
+        blAddress as Address,
+        TRANSFER_HOOK_PROGRAM,
+      );
+
+      const inx = getAddToBlacklistInstruction({
+        authority: authorityAddress,
+        config: configPda,
+        blacklistEntry: blacklistPda,
+        wallet: blAddress as Address,
+        hookProgram: TRANSFER_HOOK_PROGRAM,
+      });
+
+      const sig = await sendInx(inx);
+      setBlResult({ signature: sig });
     } catch (e: any) {
       setBlError(e.message);
     } finally {
@@ -50,12 +128,29 @@ export function ComplianceTab({ mint }: { mint: string }) {
   };
 
   const blRemove = async () => {
-    if (!blAddress) return;
+    if (!blAddress || !publicKey) return;
     setBlLoading("remove");
     setBlResult(null);
     setBlError("");
     try {
-      setBlResult(await api.compliance.unblacklist(mint, blAddress));
+      const authorityAddress = publicKey.toBase58() as Address;
+      const configPda = await getStablecoinConfigPda(mint as Address);
+      const blacklistPda = await getBlacklistPda(
+        mint as Address,
+        blAddress as Address,
+        TRANSFER_HOOK_PROGRAM,
+      );
+
+      // // const inx = getUnblacklistInstruction({
+      // //   authority: authorityAddress,
+      // //   config: configPda,
+      // //   blacklistEntry: blacklistPda,
+      // //   wallet: blAddress as Address,
+      // //   hookProgram: TRANSFER_HOOK_PROGRAM,
+      // // });
+
+      // const sig = await sendInx(inx);
+      // setBlResult({ signature: sig });
     } catch (e: any) {
       setBlError(e.message);
     } finally {
@@ -64,14 +159,26 @@ export function ComplianceTab({ mint }: { mint: string }) {
   };
 
   const doSeize = async () => {
-    if (!seizeSource || !seizeDest || !seizeAmount) return;
+    if (!seizeSource || !seizeDest || !seizeAmount || !publicKey) return;
     setSeizeLoading(true);
-    setSeizeResult(null);
+    setSeizeSig("");
     setSeizeError("");
     try {
-      setSeizeResult(
-        await api.compliance.seize(mint, seizeSource, seizeDest, seizeAmount),
-      );
+      const authorityAddress = publicKey.toBase58() as Address;
+      const configPda = await getStablecoinConfigPda(mint as Address);
+
+      const inx = getSeizeInstruction({
+        authority: authorityAddress,
+        config: configPda,
+        source: seizeSource as Address,
+        destination: seizeDest as Address,
+        mint: mint as Address,
+        tokenProgram: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb" as Address,
+        amount: BigInt(seizeAmount),
+      });
+
+      const sig = await sendInx(inx);
+      setSeizeSig(sig);
     } catch (e: any) {
       setSeizeError(e.message);
     } finally {
@@ -169,7 +276,7 @@ export function ComplianceTab({ mint }: { mint: string }) {
             )}
           </div>
         )}
-        <TxResult sig={blResult?.signature} error={blError} />
+        <TxResult sig={blResult?.signature} error={blError} network={network} />
       </Panel>
 
       {/* Seize */}
@@ -213,7 +320,7 @@ export function ComplianceTab({ mint }: { mint: string }) {
             "$ seize tokens"
           )}
         </Btn>
-        <TxResult sig={seizeResult?.signature} error={seizeError} />
+        <TxResult sig={seizeSig} error={seizeError} network={network} />
       </Panel>
     </div>
   );

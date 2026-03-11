@@ -1,13 +1,39 @@
 "use client";
 
 import { useState } from "react";
-import { api } from "@/lib/api";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
+import {
+  VersionedTransaction,
+  TransactionMessage,
+  PublicKey,
+} from "@solana/web3.js";
+import {
+  getUpdateRolesInstruction,
+  getUpdateMinterInstruction,
+  getMinterQuotaPda,
+  getStablecoinConfigPda,
+  getRolePda,
+  RoleType,
+} from "@stbr/sss-token";
+import type { Address } from "gill";
 import { Panel, Field, Btn, TxResult, Spinner } from "@/components/ui";
+import { useNetwork } from "@/components/WalletContext";
 
 const ROLES = ["minter", "blacklister", "pauser", "seizer"] as const;
 type Role = (typeof ROLES)[number];
 
+const ROLE_TYPE_MAP: Record<Role, RoleType> = {
+  minter: RoleType.Minter,
+  blacklister: RoleType.Blacklister,
+  pauser: RoleType.Pauser,
+  seizer: RoleType.Seizer,
+};
+
 export function RolesTab({ mint }: { mint: string }) {
+  const { publicKey, signTransaction } = useWallet();
+  const { connection } = useConnection();
+  const { network } = useNetwork();
+
   const [role, setRole] = useState<Role>("minter");
   const [address, setAddress] = useState("");
   const [quotaLimit, setQuotaLimit] = useState("1000000000");
@@ -22,13 +48,69 @@ export function RolesTab({ mint }: { mint: string }) {
     setError("");
   };
 
+  const sendInx = async (inx: any): Promise<string> => {
+    if (!publicKey || !signTransaction) throw new Error("Wallet not connected");
+
+    // Convert Gill instruction to web3.js format (same as InitMint.tsx)
+    const web3Inx = {
+      programId: new PublicKey(inx.programAddress),
+      keys: inx.accounts.map((a: any) => ({
+        pubkey: new PublicKey(a.address),
+        isSigner: a.role === 3 || a.role === 2,
+        isWritable: a.role === 1 || a.role === 3,
+      })),
+      data: Buffer.from(inx.data),
+    };
+
+    const { blockhash, lastValidBlockHeight } =
+      await connection.getLatestBlockhash("confirmed");
+
+    const message = new TransactionMessage({
+      payerKey: publicKey,
+      recentBlockhash: blockhash,
+      instructions: [web3Inx],
+    }).compileToLegacyMessage();
+
+    const vTx = new VersionedTransaction(message);
+    const signed = await signTransaction(vTx);
+
+    const sig = await connection.sendRawTransaction(signed.serialize(), {
+      preflightCommitment: "confirmed",
+    });
+    await connection.confirmTransaction(
+      { signature: sig, blockhash, lastValidBlockHeight },
+      "confirmed",
+    );
+    return sig;
+  };
+
   const check = async () => {
-    if (!address) return;
+    if (!address || !publicKey) return;
     setLoading("check");
     reset();
     try {
-      const data = await api.roles.check(mint, address, role);
-      setResult(data);
+      const rolePda = await getRolePda(
+        mint as Address,
+        address as Address,
+        ROLE_TYPE_MAP[role],
+      );
+      const info = await connection.getAccountInfo(new PublicKey(rolePda));
+      const hasRole = info !== null && info.data.length > 0;
+
+      let quota: any = undefined;
+      if (hasRole && role === "minter") {
+        try {
+          const quotaPda = await getMinterQuotaPda(
+            mint as Address,
+            address as Address,
+          );
+          const quotaInfo = await connection.getAccountInfo(
+            new PublicKey(quotaPda),
+          );
+          if (quotaInfo) quota = { raw: quotaInfo.data.length + " bytes" };
+        } catch {}
+      }
+      setResult({ hasRole, quota });
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -37,17 +119,46 @@ export function RolesTab({ mint }: { mint: string }) {
   };
 
   const grant = async () => {
-    if (!address) return;
+    if (!address || !publicKey) return;
     setLoading("grant");
     reset();
     try {
-      const data = await api.roles.grant(
-        mint,
-        address,
-        role,
-        role === "minter" ? quotaLimit : undefined,
+      const authorityAddress = publicKey.toBase58() as Address;
+      const configPda = await getStablecoinConfigPda(mint as Address);
+      const rolePda = await getRolePda(
+        mint as Address,
+        address as Address,
+        ROLE_TYPE_MAP[role],
       );
-      setResult(data);
+
+      let inx: any;
+      if (role === "minter") {
+        const minterQuotaPda = await getMinterQuotaPda(
+          mint as Address,
+          address as Address,
+        );
+        inx = getUpdateMinterInstruction({
+          authority: authorityAddress,
+          config: configPda,
+          minter: address as Address,
+          roleAccount: rolePda,
+          minterQuota: minterQuotaPda,
+          isActive: true,
+          quotaLimit: BigInt(quotaLimit),
+        });
+      } else {
+        inx = getUpdateRolesInstruction({
+          authority: authorityAddress,
+          config: configPda,
+          assignee: address as Address,
+          roleAccount: rolePda,
+          roleType: ROLE_TYPE_MAP[role],
+          isActive: true,
+        });
+      }
+
+      const sig = await sendInx(inx);
+      setResult({ signature: sig });
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -56,12 +167,46 @@ export function RolesTab({ mint }: { mint: string }) {
   };
 
   const revoke = async () => {
-    if (!address) return;
+    if (!address || !publicKey) return;
     setLoading("revoke");
     reset();
     try {
-      const data = await api.roles.revoke(mint, address, role);
-      setResult(data);
+      const authorityAddress = publicKey.toBase58() as Address;
+      const configPda = await getStablecoinConfigPda(mint as Address);
+      const rolePda = await getRolePda(
+        mint as Address,
+        address as Address,
+        ROLE_TYPE_MAP[role],
+      );
+
+      let inx: any;
+      if (role === "minter") {
+        const minterQuotaPda = await getMinterQuotaPda(
+          mint as Address,
+          address as Address,
+        );
+        inx = getUpdateMinterInstruction({
+          authority: authorityAddress,
+          config: configPda,
+          minter: address as Address,
+          roleAccount: rolePda,
+          minterQuota: minterQuotaPda,
+          isActive: false,
+          quotaLimit: 0n,
+        });
+      } else {
+        inx = getUpdateRolesInstruction({
+          authority: authorityAddress,
+          config: configPda,
+          assignee: address as Address,
+          roleAccount: rolePda,
+          roleType: ROLE_TYPE_MAP[role],
+          isActive: false,
+        });
+      }
+
+      const sig = await sendInx(inx);
+      setResult({ signature: sig });
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -72,7 +217,6 @@ export function RolesTab({ mint }: { mint: string }) {
   return (
     <div style={{ display: "grid", gap: 16 }}>
       <Panel title="Manage Roles" tag="RBAC">
-        {/* Role selector */}
         <div
           style={{
             display: "flex",
@@ -114,7 +258,7 @@ export function RolesTab({ mint }: { mint: string }) {
               setAddress(e.target.value);
               reset();
             }}
-            placeholder="address to grant/revoke"
+            placeholder="address to grant / revoke"
           />
         </Field>
 
@@ -174,7 +318,6 @@ export function RolesTab({ mint }: { mint: string }) {
           </Btn>
         </div>
 
-        {/* Check result */}
         {result && !result.signature && (
           <div
             style={{
@@ -194,16 +337,10 @@ export function RolesTab({ mint }: { mint: string }) {
             >
               {result.hasRole ? "✓ has role" : "✗ no role"}
             </span>
-            {result.quota && (
-              <div style={{ marginTop: 6, color: "var(--text-muted)" }}>
-                quota: {result.quota.limit} · used: {result.quota.used} ·
-                active: {String(result.quota.isActive)}
-              </div>
-            )}
           </div>
         )}
 
-        <TxResult sig={result?.signature} error={error} />
+        <TxResult sig={result?.signature} error={error} network={network} />
       </Panel>
     </div>
   );

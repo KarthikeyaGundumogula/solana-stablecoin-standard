@@ -11,6 +11,23 @@ export function asyncHandler(fn) {
 }
 // Global error middleware
 export function errorMiddleware(error, _req, res, _next) {
+    console.log(error);
     console.error(`[ERROR] ${error.message}`);
-    res.status(500).json({ success: false, error: error.message });
+    // Catch Solana SendTransactionError and print logs
+    const logs = error?.logs ?? error?.transactionLogs;
+    if (logs) {
+        console.error("[LOGS]", logs);
+    }
+    // Also try getLogs() if available
+    if (typeof error.getLogs === "function") {
+        error
+            .getLogs()
+            .then((l) => {
+            console.error("[SIMULATION LOGS]", l);
+        })
+            .catch(() => { });
+    }
+    res
+        .status(500)
+        .json({ success: false, error: error.message, logs: logs ?? [] });
 }
