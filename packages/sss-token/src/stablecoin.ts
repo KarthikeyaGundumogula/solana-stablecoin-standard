@@ -2,17 +2,11 @@ import {
   type Address,
   type TransactionSigner,
   type Rpc,
-  type GetAccountInfoApi,
-  type GetMinimumBalanceForRentExemptionApi,
   type SendAndConfirmTransactionWithSignersFunction,
   type SolanaRpcApi,
   createTransaction,
   signTransactionMessageWithSigners,
-  type TransactionMessageWithBlockhashLifetime,
   type FullySignedTransaction,
-  getProgramDerivedAddress,
-  getAddressEncoder,
-  fetchEncodedAccount,
   type Instruction,
 } from "gill";
 import {
@@ -20,8 +14,6 @@ import {
   getRolePda,
   getMinterQuotaPda,
   getBlacklistPda,
-  getAssociatedTokenAddress,
-  getCreateAssociatedTokenAccountInstruction,
 } from "./pda";
 import {
   getMintInstruction,
@@ -42,8 +34,6 @@ import {
   fetchStablecoinConfig,
   type StablecoinConfig,
   fetchRoleAccount,
-  fetchMinterQuota,
-  fetchBlacklistEntry,
   RoleType,
 } from "./generated";
 
