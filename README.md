@@ -8,9 +8,9 @@ Think **OpenZeppelin for stablecoins**: the library is the SDK, the standards (S
 
 Both programs are live on Solana Devnet:
 
-| Program | Program ID |
-|---------|-----------|
-| **stc_program** | `3nqtxhZZdpV5W2TPaa1hbWbeM3bhhsMg3Fy9oLdAHKfH` |
+| Program           | Program ID                                     |
+| ----------------- | ---------------------------------------------- |
+| **stc_program**   | `3nqtxhZZdpV5W2TPaa1hbWbeM3bhhsMg3Fy9oLdAHKfH` |
 | **transfer_hook** | `FtPdSNiQ8ieM4yE1V8FekUk7WDbgZrx9ehb3CyaXzHtG` |
 
 ## Architecture
@@ -32,9 +32,9 @@ Both programs are live on Solana Devnet:
 
 ## Standards
 
-| Standard | Name | Description |
-|----------|------|-------------|
-| **SSS-1** | Minimal Stablecoin | Mint authority + freeze authority + metadata. What's needed on every stable, nothing more. |
+| Standard  | Name                 | Description                                                                                     |
+| --------- | -------------------- | ----------------------------------------------------------------------------------------------- |
+| **SSS-1** | Minimal Stablecoin   | Mint authority + freeze authority + metadata. What's needed on every stable, nothing more.      |
 | **SSS-2** | Compliant Stablecoin | SSS-1 + permanent delegate + transfer hook + blacklist enforcement. USDC/USDT-class compliance. |
 
 ## Quick Start
@@ -96,22 +96,32 @@ sss-token minters remove -m <mint_address> <address>
 import { SolanaStablecoin, Presets } from "@stbr/sss-token";
 
 // SSS-2 preset setup
-const { stablecoin, tx } = await SolanaStablecoin.create(
-  clientInfo,
-  {
-    preset: Presets.SSS_2,
-    name: "My Stablecoin",
-    symbol: "MYUSD",
-    decimals: 6,
-    authority: adminSigner,
-    mint: mintSigner,
-  }
-);
+const { stablecoin, tx } = await SolanaStablecoin.create(clientInfo, {
+  preset: Presets.SSS_2,
+  name: "My Stablecoin",
+  symbol: "MYUSD",
+  decimals: 6,
+  authority: adminSigner,
+  mint: mintSigner,
+});
 
 // Operations
-await stablecoin.mintTo(adminSigner, adminSigner, recipientAddress, 1000000n, adminKeypair, rpcUrl);
+await stablecoin.mintTo(
+  adminSigner,
+  adminSigner,
+  recipientAddress,
+  1000000n,
+  adminKeypair,
+  rpcUrl,
+);
 await stablecoin.blacklistAdd(adminSigner, adminSigner, blacklistedAddress);
-await stablecoin.seize(adminSigner, adminSigner, frozenAccount, treasuryAccount, 100n);
+await stablecoin.seize(
+  adminSigner,
+  adminSigner,
+  frozenAccount,
+  treasuryAccount,
+  100n,
+);
 ```
 
 ## Project Structure
@@ -140,24 +150,24 @@ solana-stablecoin-standard/
 
 No single key controls everything:
 
-| Role | Capabilities |
-|------|-------------|
+| Role                 | Capabilities                                |
+| -------------------- | ------------------------------------------- |
 | **Master Authority** | Assign/revoke all roles, transfer authority |
-| **Minter** | Mint tokens (with per-minter quotas) |
-| **Burner** | Burn tokens |
-| **Pauser** | Pause/unpause, freeze/thaw accounts |
-| **Blacklister** | Add/remove from blacklist (SSS-2) |
-| **Seizer** | Seize tokens via permanent delegate (SSS-2) |
+| **Minter**           | Mint tokens (with per-minter quotas)        |
+| **Burner**           | Burn tokens                                 |
+| **Pauser**           | Pause/unpause, freeze/thaw accounts         |
+| **Blacklister**      | Add/remove from blacklist (SSS-2)           |
+| **Seizer**           | Seize tokens via permanent delegate (SSS-2) |
 
 ## Token-2022 Extensions Used
 
-| Extension | SSS-1 | SSS-2 | Purpose |
-|-----------|-------|-------|---------|
-| Metadata Pointer | ✓ | ✓ | On-chain metadata |
-| Mint/Freeze Authority | ✓ | ✓ | Token control |
-| Permanent Delegate | | ✓ | Token seizure |
-| Transfer Hook | | ✓ | Blacklist enforcement on every transfer |
-| Default Account State | | Optional | Freeze new accounts by default |
+| Extension             | SSS-1 | SSS-2    | Purpose                                 |
+| --------------------- | ----- | -------- | --------------------------------------- |
+| Metadata Pointer      | ✓     | ✓        | On-chain metadata                       |
+| Mint/Freeze Authority | ✓     | ✓        | Token control                           |
+| Permanent Delegate    |       | ✓        | Token seizure                           |
+| Transfer Hook         |       | ✓        | Blacklist enforcement on every transfer |
+| Default Account State |       | Optional | Freeze new accounts by default          |
 
 ## Development
 
@@ -169,10 +179,42 @@ anchor build
 anchor test
 
 # Build SDK & CLI
-cd packages/sss-token 
+cd packages/sss-token
 npm run build:cli
 npm run build:sdk
 ```
+
+## Example Workflow(CLI)
+
+1. create token with preset
+
+```bash
+sss-token init --preset sss-1 --name "Internal Settlement" --symbol "SETL"
+```
+
+devnet_transaction - https://solscan.io/tx/4mhvZQ8tDEEPEKcy7j47EqXHyJZKhZF3sBpJ4HFQePdgUiFThAVui7ACbHxZBKERSce8a852FGVXCB53kyTu57xX?cluster=devnet
+
+2. add minter role with quota
+
+```bash
+sss-token minters add HGbe7AjNtNNuU3QmninLVZhcY1bJGEyuXVLrbw1EPyCW -m AVMs4cWazivk7MeWaVSEHjGa7gYMiS7tGdkwshLhr98e -q 100000
+```
+
+devnet_transaction - https://solscan.io/tx/3yNjs8NpPc3bgHdWVPvKJBNfb2sz9ZvP6G9uxg1hUsSp6ZkMScQyL1GzxLDoKSMeRQ23KFnHGvP8iSt5CyTbHiDr?cluster=devnet
+
+3. check whether the minter role is added or not
+
+```bash
+ sss-token minters list -m AVMs4cWazivk7MeWaVSEHjGa7gYMiS7tGdkwshLhr98e
+```
+
+4. mint some tokens
+
+```bash
+ sss-token mint HGbe7AjNtNNuU3QmninLVZhcY1bJGEyuXVLrbw1EPyCW 100 -m AVMs4cWazivk7MeWaVSEHjGa7gYMiS7tGdkwshLhr98e
+```
+
+devnet transaction - https://solscan.io/tx/5bnMEGec8L6rFYfxL3Lm7hV5Zn8bXNx63k75pB9Y8MVBSsPWb5XCsX5EcQcSdeBADQ8zQ4mTuNVmc24EupKH1npF?cluster=devnet
 
 ## License
 
