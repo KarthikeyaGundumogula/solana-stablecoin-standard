@@ -1,0 +1,12 @@
+[fuzz.metrics]
+enabled = true
+
+
+[[fuzz.programs]]
+address = "FtPdSNiQ8ieM4yE1V8FekUk7WDbgZrx9ehb3CyaXzHtG"
+program = "../target/deploy/transfer_hook.so"
+
+[[fuzz.programs]]
+address = "3nqtxhZZdpV5W2TPaa1hbWbeM3bhhsMg3Fy9oLdAHKfH"
+program = "../target/deploy/stc_program.so"
+ 

@@ -8,6 +8,5 @@ test-ledger
 packages/sss-token/dist
 packages/sss-token/src/generated
 packages/sss-token/dist-cli
-trident-tests
 **/.env
 .env
