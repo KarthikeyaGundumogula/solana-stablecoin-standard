@@ -27,6 +27,10 @@ pub struct Execute<'info> {
     pub extra_account_meta_list: UncheckedAccount<'info>,
 
     // ---- Extra accounts resolved by Token-2022 from the meta list ---- //
+    /// The stc_program
+    /// CHECK: Validated as stc_program ID
+    #[account(address = stc_program::ID)]
+    pub stc_program_id: UncheckedAccount<'info>,
     /// Blacklist PDA for the source owner.
     /// Derived: ["blacklist", mint, source_authority] on stc_program.
     /// If the account exists and is owned by stc_program, the source is blacklisted.
@@ -37,11 +41,6 @@ pub struct Execute<'info> {
     /// Derived: ["blacklist", mint, destination_owner] on stc_program.
     /// CHECK: We only check existence and ownership.
     pub destination_blacklist_entry: UncheckedAccount<'info>,
-
-    /// The stc_program
-    /// CHECK: Validated as stc_program ID
-    #[account(address = stc_program::ID)]
-    pub stc_program_id: UncheckedAccount<'info>,
 }
 
 pub fn handler_execute(ctx: Context<Execute>, _amount: u64) -> Result<()> {

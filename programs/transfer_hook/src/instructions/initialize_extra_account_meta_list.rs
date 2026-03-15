@@ -43,9 +43,11 @@ pub fn handler_init_extra_metas(ctx: Context<InitializeExtraAccountMetaList>) ->
     // 3. stc_program itself
 
     let extra_account_metas = vec![
+        // stc_program itself
+        ExtraAccountMeta::new_with_pubkey(&ctx.accounts.stc_program_id.key().to_bytes().into(), false, false).unwrap(),
         // source_blacklist_entry: PDA("blacklist", mint, source_authority) on stc_program
         ExtraAccountMeta::new_external_pda_with_seeds(
-            8, // stc_program_id index (index of stc_program in our execute accounts)
+            5, // stc_program_id index (index of stc_program in our execute accounts)
             &[
                 Seed::Literal {
                     bytes: b"blacklist".to_vec(),
@@ -55,23 +57,25 @@ pub fn handler_init_extra_metas(ctx: Context<InitializeExtraAccountMetaList>) ->
             ],
             false, // is_signer
             false, // is_writable
-        )?,
+        ).unwrap(),
         // destination_blacklist_entry: PDA("blacklist", mint, destination_owner) on stc_program
         // Note: destination_owner needs to be resolved from the ATA data
         ExtraAccountMeta::new_external_pda_with_seeds(
-            8, // stc_program_id index
+            5, // stc_program_id index
             &[
                 Seed::Literal {
                     bytes: b"blacklist".to_vec(),
                 },
                 Seed::AccountKey { index: 1 }, // mint
-                Seed::AccountData { account_index: 2, data_index: 32, length:32 } , // destination_token_account
+                Seed::AccountData {
+                    account_index: 2, // destination_token_account (ATA)
+                    data_index: 32,   // owner field offset in SPL Token account layout
+                    length: 32,       // Pubkey size
+                },
             ],
             false,
             false,
-        )?,
-        // stc_program itself
-        ExtraAccountMeta::new_with_pubkey(&stc_program::ID, false, false)?,
+        ).unwrap(),
     ];
 
     // Calculate the size and create the account
@@ -102,7 +106,8 @@ pub fn handler_init_extra_metas(ctx: Context<InitializeExtraAccountMetaList>) ->
 
     // Initialize the account data with the extra metas
     let mut data = ctx.accounts.extra_account_meta_list.try_borrow_mut_data()?;
-    ExtraAccountMetaList::init::<ExecuteInstruction>(&mut data, &extra_account_metas)?;
+    ExtraAccountMetaList::init::<ExecuteInstruction>(&mut data, &extra_account_metas)
+        .map_err(|_| ProgramError::InvalidAccountData)?;
 
     msg!(
         "ExtraAccountMetaList initialized with {} extra accounts",

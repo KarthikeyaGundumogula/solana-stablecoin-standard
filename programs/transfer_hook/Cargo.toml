@@ -22,9 +22,10 @@ custom-panic = []
 [dependencies]
 anchor-lang = "0.32.1"
 anchor-spl = { version = "0.32.1", features = ["token_2022"] }
-spl-token-2022 = { version = "8", features = ["no-entrypoint"] }
-spl-transfer-hook-interface = "0.10"
-spl-tlv-account-resolution = "0.10"
+spl-token-2022 = { version = "10.0.0", features = ["no-entrypoint"] }
+spl-transfer-hook-interface = "2.1.0"
+spl-tlv-account-resolution = "0.11.1"
+spl-discriminator = "0.5.1"
 stc_program = { path = "../stc_program", features = ["cpi"] }
 
 [lints.rust]
