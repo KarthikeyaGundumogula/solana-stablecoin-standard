@@ -66,7 +66,7 @@ pub fn handler_init_extra_metas(ctx: Context<InitializeExtraAccountMetaList>) ->
                     bytes: b"blacklist".to_vec(),
                 },
                 Seed::AccountKey { index: 1 }, // mint
-                Seed::AccountKey { index: 2 }, // destination_token_account (owner resolved by runtime)
+                Seed::AccountData { account_index: 2, data_index: 32, length:32 } , // destination_token_account
             ],
             false,
             false,
