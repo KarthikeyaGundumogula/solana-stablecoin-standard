@@ -58,7 +58,6 @@ pub fn handler_init_extra_metas(ctx: Context<InitializeExtraAccountMetaList>) ->
         )?,
         // destination_blacklist_entry: PDA("blacklist", mint, destination_owner) on stc_program
         // Note: destination_owner needs to be resolved from the ATA data
-        // For simplicity, we use destination_token_account key for lookup
         ExtraAccountMeta::new_external_pda_with_seeds(
             8, // stc_program_id index
             &[
